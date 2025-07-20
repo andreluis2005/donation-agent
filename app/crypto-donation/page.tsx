@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useMiniKit, useOpenUrl } from "@coinbase/onchainkit/minikit";
-import { useAccount, useSendTransaction, useDisconnect, useContractWrite, useBalance } from "wagmi";
+import { useAccount, useSendTransaction, useDisconnect, useContractWrite, useBalance, useConnect } from "wagmi";
 import { parseEther, isAddress } from "viem";
-import { FaCheckCircle, FaPlug, FaExclamationCircle, FaChartBar } from "react-icons/fa";
+import { FaCheckCircle, FaPlug, FaExclamationCircle, FaChartBar, FaWallet } from "react-icons/fa";
 import DonationModal from "../../components/DonationModal";
 import { Bar } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
+
 import { supabase } from "../../lib/supabase";
+
 
 // Registrar componentes do Chart.js
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -52,7 +54,8 @@ const validateAddress = (addr: string): string => {
 export default function Home() {
   const { setFrameReady, isFrameReady } = useMiniKit();
   const openUrl = useOpenUrl();
-  const { address } = useAccount();
+  const { address, chainId } = useAccount();
+  const { connect, connectors, error: connectError, isPending: isConnecting } = useConnect();
   const { sendTransactionAsync } = useSendTransaction();
   const { disconnect } = useDisconnect();
   const { writeAsync: transferTokenAsync } = useContractWrite({
@@ -108,6 +111,17 @@ export default function Home() {
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [lastDonation, setLastDonation] = useState<{ value: string; currency: string; toAddress: string; cause: string } | null>(null);
   const [resolveModal, setResolveModal] = useState<((value: boolean) => void) | null>(null);
+  const [isWalletMenuOpen, setIsWalletMenuOpen] = useState(false);
+
+  // Filtrar conectores para evitar duplicatas (e.g., múltiplos MetaMask)
+  const uniqueConnectors = useMemo(() => {
+    const seenIds = new Set<string>();
+    return connectors.filter((connector) => {
+      if (seenIds.has(connector.id)) return false;
+      seenIds.add(connector.id);
+      return true;
+    });
+  }, [connectors]);
 
   // Carregar doações do Supabase
   useEffect(() => {
@@ -172,25 +186,26 @@ export default function Home() {
     }
   }, [amount, currency, cause, customCommand, isCustomMode]);
 
-  const handleConnectWallet = async () => {
-    if (!window.ethereum) {
-      setMessage(
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-          <FaExclamationCircle /> <p>Wallet provider not found. Please install a wallet like MetaMask.</p>
-        </div>
-      );
-      return;
-    }
+  // Função para conectar carteira
+  const handleConnectWallet = async (connector: any) => {
+    setMessage("");
+    setIsLoading(true);
     try {
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      console.log("Wallet connected successfully");
-    } catch (error) {
-      console.error("Error connecting wallet:", error);
+      await connect({ connector });
       setMessage(
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-          <FaExclamationCircle /> <p>{`Failed to connect wallet: ${(error as Error).message}`}</p>
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
+          <FaCheckCircle /> <p>Carteira conectada com sucesso!</p>
         </div>
       );
+      setIsWalletMenuOpen(false); // Fechar o dropdown após conectar
+    } catch (error) {
+      setMessage(
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+          <FaExclamationCircle /> <p>{`Erro ao conectar carteira: ${(error as Error).message}`}</p>
+        </div>
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -198,7 +213,7 @@ export default function Home() {
     disconnect();
     setMessage(
       <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
-        <FaCheckCircle /> <p>Wallet disconnected successfully.</p>
+        <FaCheckCircle /> <p>Carteira desconectada com sucesso.</p>
       </div>
     );
   };
@@ -208,7 +223,7 @@ export default function Home() {
 
     const causeName = isCustomMode ? "Custom Cause" : causeNameMap[cause];
     const shareText = encodeURIComponent(
-      `I just donated ${lastDonation.value} ${lastDonation.currency} to the ${causeName} cause using Onchain Donation! '🎉 Check it out at https://donation-agent.vercel.app'`
+      `I just donated ${lastDonation.value} ${lastDonation.currency} to the ${causeName} cause using Onchain Donation! 🎉 Check it out at https://donation-agent.vercel.app`
     );
     openUrl(`https://warpcast.com/~/compose?text=${shareText}`);
   };
@@ -371,32 +386,6 @@ export default function Home() {
 
         const devAddress = "0xf2D3CeF68400248C9876f5A281291c7c4603D100";
         validateAddress(devAddress);
-
-        if (!window.ethereum) {
-          setMessage(
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-              <FaExclamationCircle /> <p>Wallet provider not found. Please ensure a wallet is installed and active.</p>
-            </div>
-          );
-          setIsLoading(false);
-          setTransactionStatus("");
-          return;
-        }
-
-        try {
-          await window.ethereum.request({ method: "eth_requestAccounts" });
-          console.log("Wallet awakened successfully");
-        } catch (error) {
-          console.error("Error awakening wallet:", error);
-          setMessage(
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-              <FaExclamationCircle /> <p>{`Failed to awaken wallet: ${(error as Error).message}`}</p>
-            </div>
-          );
-          setIsLoading(false);
-          setTransactionStatus("");
-          return;
-        }
 
         let txHash: string;
 
@@ -643,25 +632,65 @@ export default function Home() {
           <span className="block sm:inline">Donation</span>
         </h1>
 
-        {!address && (
-          <div className="flex justify-center w-full">
-            <button
-              onClick={handleConnectWallet}
-              className={`bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isDarkMode ? "hover:bg-emerald-700" : ""} hover:scale-105`}
-              aria-label="Connect Wallet"
-            >
-              <span className="flex items-center gap-2">
-                <span>Connect Wallet</span>
-                <FaPlug />
-              </span>
-            </button>
+        {!address ? (
+          <div className="flex flex-col items-center gap-4 w-full">
+            <p className="text-lg text-white drop-shadow-md">Conecte sua carteira para começar:</p>
+            <div className="relative">
+              <button
+                onClick={() => setIsWalletMenuOpen(!isWalletMenuOpen)}
+                disabled={isConnecting}
+                className={`bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isConnecting ? "opacity-50 cursor-not-allowed" : ""} ${isDarkMode ? "hover:bg-emerald-700" : ""} hover:scale-105`}
+                aria-label="Connect Wallet"
+                aria-expanded={isWalletMenuOpen}
+                aria-controls="wallet-menu"
+              >
+                <span className="flex items-center gap-2">
+                  <span>{isConnecting ? "Conectando..." : "Conectar Carteira"}</span>
+                  <FaWallet />
+                </span>
+              </button>
+              {isWalletMenuOpen && (
+                <div
+                  id="wallet-menu"
+                  className={`absolute z-20 mt-2 w-48 rounded-lg shadow-lg ${
+                    isDarkMode ? "bg-gray-800 border-gray-600" : "bg-white border-gray-200"
+                  } border transition-all duration-300 animate-slide-in`}
+                >
+                  <ul className="py-2">
+                    {uniqueConnectors.map((connector) => (
+                      <li key={connector.id}>
+                        <button
+                          onClick={() => handleConnectWallet(connector)}
+                          disabled={isConnecting}
+                          className={`w-full text-left px-4 py-2 text-sm ${
+                            isDarkMode ? "text-gray-100 hover:bg-gray-700" : "text-gray-900 hover:bg-gray-100"
+                          } transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed`}
+                          aria-label={`Connect with ${connector.name}`}
+                        >
+                          {connector.name}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            {connectError && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+                <FaExclamationCircle /> <p>{`Erro: ${connectError.message}`}</p>
+              </div>
+            )}
+            {message && (
+              <div role="alert" aria-live="polite" className="mt-4 w-full max-w-xl mx-auto">
+                {message}
+              </div>
+            )}
           </div>
-        )}
-
-        {address && (
+        ) : (
           <>
             <div className="text-base font-medium mb-8 text-center flex items-center justify-center gap-3 text-white drop-shadow-md w-full flex-wrap">
               <p className="truncate max-w-xs">{`Wallet Connected: ${address.slice(0, 6)}...${address.slice(-4)}`}</p>
+              <p>Chain ID: {chainId}</p>
               <button
                 onClick={handleDisconnectWallet}
                 className="bg-gray-600/70 dark:bg-gray-700/70 text-white p-2 rounded-full hover:bg-gray-800/70 transition-colors duration-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-500 hover:scale-105"

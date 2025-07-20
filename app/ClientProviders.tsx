@@ -1,17 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createConfig, WagmiProvider, http } from "wagmi";
+import { WagmiProvider, createConfig, http } from "wagmi";
 import { baseSepolia } from "wagmi/chains";
-import { metaMask } from "wagmi/connectors";
+import { walletConnect, injected, coinbaseWallet } from "@wagmi/connectors";
 import { MiniKitProvider } from "@coinbase/onchainkit/minikit";
 
 // Configuração do Wagmi
 const wagmiConfig = createConfig({
   chains: [baseSepolia],
-  connectors: [metaMask()],
+  connectors: [
+    injected({ target: "metaMask" }),
+    walletConnect({
+      projectId: "7dfe94d41de1c06a7b02e621eab53009", // Substitua por seu projectId real
+    }),
+    coinbaseWallet({
+      appName: "Donation Agent",
+    }),
+  ],
   transports: {
-    [baseSepolia.id]: http("https://sepolia.base.org"),
+    [baseSepolia.id]: http(),
   },
 });
 
