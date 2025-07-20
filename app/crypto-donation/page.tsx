@@ -8,6 +8,7 @@ import { FaCheckCircle, FaPlug, FaExclamationCircle, FaChartBar } from "react-ic
 import DonationModal from "../../components/DonationModal";
 import { Bar } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from "chart.js";
+import { supabase } from "../../lib/supabase";
 
 // Registrar componentes do Chart.js
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -99,17 +100,31 @@ export default function Home() {
   const [donateToDev, setDonateToDev] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [history, setHistory] = useState<string[]>(() => {
-    const savedHistory = typeof window !== "undefined" ? localStorage.getItem("donationHistory") : null;
-    return savedHistory ? JSON.parse(savedHistory).slice(-10) : [];
-  });
+  const [history, setHistory] = useState<any[]>([]);
   const [transactionStatus, setTransactionStatus] = useState("");
   const [isCommandValid, setIsCommandValid] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
-  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false); // Novo estado para modal de estatísticas
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [lastDonation, setLastDonation] = useState<{ value: string; currency: string; toAddress: string; cause: string } | null>(null);
   const [resolveModal, setResolveModal] = useState<((value: boolean) => void) | null>(null);
+
+  // Carregar doações do Supabase
+  useEffect(() => {
+    async function fetchDonations() {
+      if (!address) return;
+      const { data, error } = await supabase
+        .from("donations")
+        .select("*")
+        .eq("user_address", address);
+      if (error) {
+        console.error("Erro ao buscar doações:", error.message);
+        return;
+      }
+      setHistory(data || []);
+    }
+    fetchDonations();
+  }, [address]);
 
   // Placeholder dinâmico baseado na moeda
   const amountPlaceholder = useMemo(() => {
@@ -118,7 +133,6 @@ export default function Home() {
 
   // Função para processar estatísticas do histórico
   const getStatsData = () => {
-    // Define o tipo baseado nas chaves de causeAddressMap
     type CauseKey = keyof typeof causeAddressMap;
     const stats: Record<CauseKey, { ETH: number; USDC: number; USDT: number }> = {
       education: { ETH: 0, USDC: 0, USDT: 0 },
@@ -128,23 +142,14 @@ export default function Home() {
     };
 
     history.forEach((entry) => {
-      // Expressão regular ajustada para capturar o formato completo, incluindo "(Dev: ...)" opcional
-      const match = entry.match(/Donation of (\d+\.?\d*)\s+(\w+)\s+to\s+(0x[a-fA-F0-9]{40})(?:\s+\(Dev:.*\))?/);
-      if (match) {
-        const [, amount, currency, toAddress] = match;
-        // Usa uma tipagem explícita para as chaves de causeAddressMap
-        const causeKey = (Object.keys(causeAddressMap) as CauseKey[]).find(
-          (key) => causeAddressMap[key].toLowerCase() === toAddress.toLowerCase()
-        ) as CauseKey | undefined;
-        if (causeKey && stats[causeKey] && (currency === "ETH" || currency === "USDC" || currency === "USDT")) {
-          stats[causeKey][currency as keyof typeof stats[CauseKey]] += parseFloat(amount);
-        }
-      } else {
-        console.log("No match for entry:", entry); // Depuração
+      const causeKey = (Object.keys(causeAddressMap) as CauseKey[]).find(
+        (key) => causeAddressMap[key].toLowerCase() === entry.to_address.toLowerCase()
+      ) as CauseKey | undefined;
+      if (causeKey && stats[causeKey] && ["ETH", "USDC", "USDT"].includes(entry.currency)) {
+        stats[causeKey][entry.currency as keyof typeof stats[CauseKey]] += parseFloat(entry.amount);
       }
     });
 
-    console.log("Stats calculated:", stats); // Depuração dos valores calculados
     return stats;
   };
 
@@ -158,14 +163,7 @@ export default function Home() {
   }, [isFrameReady, setFrameReady]);
 
   useEffect(() => {
-    const limitedHistory = history.slice(-50);
-    localStorage.setItem("donationHistory", JSON.stringify(limitedHistory));
-    console.log("History updated:", limitedHistory); // Depuração do histórico
-  }, [history]);
-
-  useEffect(() => {
     if (isCustomMode) {
-      // Validação apenas para comandos em inglês
       const isValid = customCommand.match(/Donate\s+(\d+\.?\d*)\s+(ETH|USDC|USDT)\s+to\s+(0x[a-fA-F0-9]{40}|education|health|environment|social)/i);
       setIsCommandValid(!!isValid);
     } else {
@@ -211,7 +209,7 @@ export default function Home() {
     const causeName = isCustomMode ? "Custom Cause" : causeNameMap[cause];
     const shareText = encodeURIComponent(
       `I just donated ${lastDonation.value} ${lastDonation.currency} to the ${causeName} cause using Onchain Donation! '🎉 Check it out at https://donation-agent.vercel.app'`
-    ); // Uso de aspas simples
+    );
     openUrl(`https://warpcast.com/~/compose?text=${shareText}`);
   };
 
@@ -400,6 +398,8 @@ export default function Home() {
           return;
         }
 
+        let txHash: string;
+
         if (data.currency === "ETH") {
           if (confirm) {
             const devPercentage = 0.1;
@@ -410,6 +410,7 @@ export default function Home() {
               to: data.toAddress,
               value: userAmount,
             });
+            txHash = tx1;
             console.log("Transaction to charity sent:", tx1);
 
             const tx2 = await sendTransactionAsync({
@@ -418,8 +419,28 @@ export default function Home() {
             });
             console.log("Transaction to developer sent:", tx2);
 
+            await fetch("/api/donate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                command: `doar ${data.value} ETH para ${data.toAddress}`,
+                signerData: { address },
+                donateToDev: confirm,
+                txHash: tx1,
+              }),
+            });
+
             const timestamp = new Date().toLocaleString();
-            const historyEntry = `${timestamp} - From: ${address.slice(0, 6)}...${address.slice(-4)} - Donation of ${data.value} ${data.currency} to ${data.toAddress.slice(0, 6)}... (Dev: ${(devAmount / BigInt(10 ** 18)).toString()} ${data.currency})`;
+            const historyEntry = {
+              user_address: address,
+              amount: data.value,
+              currency: data.currency,
+              to_address: data.toAddress,
+              cause,
+              dev_donation: (devAmount / BigInt(10 ** 18)).toString(),
+              tx_hash: tx1,
+              created_at: timestamp,
+            };
             setHistory((prev) => [...prev, historyEntry]);
             setLastDonation({ ...data, cause });
             setMessage(
@@ -435,9 +456,31 @@ export default function Home() {
               to: data.toAddress,
               value: BigInt(data.amountInWei || parseEther(data.value).toString()),
             });
+            txHash = tx;
             console.log("Transaction sent:", tx);
+
+            await fetch("/api/donate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                command: `doar ${data.value} ETH para ${data.toAddress}`,
+                signerData: { address },
+                donateToDev: confirm,
+                txHash: tx,
+              }),
+            });
+
             const timestamp = new Date().toLocaleString();
-            const historyEntry = `${timestamp} - From: ${address.slice(0, 6)}...${address.slice(-4)} - Donation of ${data.value} ${data.currency} to ${data.toAddress.slice(0, 6)}...`;
+            const historyEntry = {
+              user_address: address,
+              amount: data.value,
+              currency: data.currency,
+              to_address: data.toAddress,
+              cause,
+              dev_donation: 0,
+              tx_hash: tx,
+              created_at: timestamp,
+            };
             setHistory((prev) => [...prev, historyEntry]);
             setLastDonation({ ...data, cause });
             setMessage(
@@ -453,9 +496,31 @@ export default function Home() {
           const tx = await transferTokenAsync({
             args: [data.toAddress, BigInt(amountInUnits)],
           });
+          txHash = tx;
           console.log("USDC transaction sent:", tx);
+
+          await fetch("/api/donate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              command: `doar ${data.value} USDC para ${data.toAddress}`,
+              signerData: { address },
+              donateToDev: confirm,
+              txHash: tx,
+            }),
+          });
+
           const timestamp = new Date().toLocaleString();
-          const historyEntry = `${timestamp} - From: ${address.slice(0, 6)}...${address.slice(-4)} - Donation of ${data.value} ${data.currency} to ${data.toAddress.slice(0, 6)}...`;
+          const historyEntry = {
+            user_address: address,
+            amount: data.value,
+            currency: data.currency,
+            to_address: data.toAddress,
+            cause,
+            dev_donation: 0,
+            tx_hash: tx,
+            created_at: timestamp,
+          };
           setHistory((prev) => [...prev, historyEntry]);
           setLastDonation({ ...data, cause });
           setMessage(
@@ -470,9 +535,31 @@ export default function Home() {
           const tx = await transferUsdtAsync({
             args: [data.toAddress, BigInt(amountInUnits)],
           });
+          txHash = tx;
           console.log("USDT transaction sent:", tx);
+
+          await fetch("/api/donate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              command: `doar ${data.value} USDT para ${data.toAddress}`,
+              signerData: { address },
+              donateToDev: confirm,
+              txHash: tx,
+            }),
+          });
+
           const timestamp = new Date().toLocaleString();
-          const historyEntry = `${timestamp} - From: ${address.slice(0, 6)}...${address.slice(-4)} - Donation of ${data.value} ${data.currency} to ${data.toAddress.slice(0, 6)}...`;
+          const historyEntry = {
+            user_address: address,
+            amount: data.value,
+            currency: data.currency,
+            to_address: data.toAddress,
+            cause,
+            dev_donation: 0,
+            tx_hash: tx,
+            created_at: timestamp,
+          };
           setHistory((prev) => [...prev, historyEntry]);
           setLastDonation({ ...data, cause });
           setMessage(
@@ -807,7 +894,9 @@ export default function Home() {
                   >
                     <span className="flex items-center gap-2">
                       <FaCheckCircle className="text-emerald-500 dark:text-emerald-400" />
-                      <span className="text-gray-700 dark:text-gray-300">{entry}</span>
+                      <span className="text-gray-700 dark:text-gray-300">
+                        {`${entry.created_at} - From: ${entry.user_address.slice(0, 6)}...${entry.user_address.slice(-4)} - Donation of ${entry.amount} ${entry.currency} to ${entry.to_address.slice(0, 6)}... (Dev: ${entry.dev_donation} ${entry.currency})`}
+                      </span>
                     </span>
                   </li>
                 ))}
