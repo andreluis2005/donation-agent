@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseEther } from "viem";
-import { ethers } from "ethers";
+import { parseEther, isAddress } from "viem";
 import { supabase } from "../../../lib/supabase";
 
 export async function POST(request: Request) {
@@ -25,10 +24,7 @@ export async function POST(request: Request) {
 		const toAddress = match[2];
 
 		// Validar endereços
-		if (
-			!ethers.utils.isAddress(toAddress) ||
-			!ethers.utils.isAddress(signerData.address)
-		) {
+		if (!isAddress(toAddress) || !isAddress(signerData.address)) {
 			return NextResponse.json({ error: "Endereço inválido" }, { status: 400 });
 		}
 

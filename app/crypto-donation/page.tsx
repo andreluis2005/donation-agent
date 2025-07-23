@@ -21,7 +21,7 @@ import {
 } from "react-icons/fa";
 import { RiLoader4Line } from "react-icons/ri";
 import DonationModal from "../../components/DonationModal";
-import { Bar } from "react-chartjs-2";
+import { Bar } from "react-chartjs-2"; // Adicionado o import do componente Bar
 import {
 	Chart as ChartJS,
 	CategoryScale,
@@ -32,6 +32,7 @@ import {
 	Legend,
 } from "chart.js";
 import { supabase } from "../../lib/supabase";
+import Image from "next/image";
 
 // Registrar componentes do Chart.js
 ChartJS.register(
@@ -70,6 +71,18 @@ const erc20ABI = [
 		type: "function",
 	},
 ];
+
+// Interface para doações
+interface Donation {
+	user_address: string;
+	amount: string;
+	currency: string;
+	to_address: string;
+	cause: string;
+	dev_donation: number;
+	tx_hash: string;
+	created_at: string;
+}
 
 // Função para validar endereços Ethereum
 const validateAddress = (addr: string): string => {
@@ -111,7 +124,7 @@ export default function Home() {
 	});
 
 	const causeAddressMap = {
-		education: "0xCaE3E92B39a1965A4B98bE34470Fdc1f49279e6",
+		education: "0xCaE3E92B39a1965A4B988bE34470Fdc1f49279e6",
 		health: "0x02dE0627054cC5c59821B4Ea2cCE448f64284290",
 		environment: "0x40Af88bA3D3554e0cCb9Ca3EDc72EbEe4e4C7ae5",
 		social: "0x41Ad38D867049a180231038E38890e2c5F1EECbA",
@@ -132,7 +145,7 @@ export default function Home() {
 	const [message, setMessage] = useState<JSX.Element | string>("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [isDarkMode, setIsDarkMode] = useState(false);
-	const [history, setHistory] = useState<any[]>([]);
+	const [history, setHistory] = useState<Donation[]>([]);
 	const [transactionStatus, setTransactionStatus] = useState("");
 	const [isCommandValid, setIsCommandValid] = useState<boolean>(false);
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -151,11 +164,11 @@ export default function Home() {
 	const [connectingConnectorId, setConnectingConnectorId] = useState<
 		string | null
 	>(null);
-	const [page, setPage] = useState(1); // Adicionado para paginação
+	const [page] = useState(1); // Removido setPage
 	const pageSize = 10; // Tamanho da página
-	const [isDevDonationModalOpen, setIsDevDonationModalOpen] = useState(false); // Novo estado para modal de doação ao desenvolvedor
-	const [devDonationAmount, setDevDonationAmount] = useState(""); // Valor da doação ao desenvolvedor
-	const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false); // Novo estado para confirmação de exclusão
+	const [isDevDonationModalOpen, setIsDevDonationModalOpen] = useState(false);
+	const [devDonationAmount, setDevDonationAmount] = useState("");
+	const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
 
 	// Novos estados para filtros
 	const [filterCause, setFilterCause] = useState("");
@@ -182,6 +195,21 @@ export default function Home() {
 		);
 		return prioritizedConnectors.sort((a, b) => a.name.localeCompare(b.name));
 	}, [connectors]);
+
+	// Função para conectar carteira
+	const handleConnectWallet = async (connector: (typeof connectors)[0]) => {
+		setIsLoading(true);
+		setConnectingConnectorId(connector.id);
+		try {
+			await connect({ connector });
+			setIsWalletMenuOpen(false);
+		} catch (error) {
+			console.error("Connection error:", (error as Error).message);
+		} finally {
+			setIsLoading(false);
+			setConnectingConnectorId(null);
+		}
+	};
 
 	// Cache local e paginação
 	useEffect(() => {
@@ -272,7 +300,7 @@ export default function Home() {
 		});
 
 		return filtered;
-	}, [filterCause, filterCurrency, getStatsData]);
+	}, [filterCause, filterCurrency, history, causeNameMap]);
 
 	// Função para exportar para CSV
 	const exportToCSV = () => {
@@ -296,6 +324,7 @@ export default function Home() {
 		window.URL.revokeObjectURL(url);
 	};
 
+	// Configuração do frame Minikit
 	useEffect(() => {
 		if (!isFrameReady) {
 			setFrameReady();
@@ -303,6 +332,7 @@ export default function Home() {
 		}
 	}, [isFrameReady, setFrameReady]);
 
+	// Validação de comando customizado
 	useEffect(() => {
 		if (isCustomMode) {
 			const isValid = customCommand.match(
@@ -316,6 +346,7 @@ export default function Home() {
 		}
 	}, [amount, currency, cause, customCommand, isCustomMode]);
 
+	// Manipulador de eventos de teclado para seleção de carteira
 	const handleKeyPress = useCallback(
 		(event: KeyboardEvent) => {
 			if (!isWalletMenuOpen) return;
@@ -325,27 +356,13 @@ export default function Home() {
 				handleConnectWallet(uniqueConnectors[index]);
 			}
 		},
-		[isWalletMenuOpen, uniqueConnectors],
+		[isWalletMenuOpen, uniqueConnectors, handleConnectWallet],
 	);
 
 	useEffect(() => {
 		window.addEventListener("keydown", handleKeyPress);
 		return () => window.removeEventListener("keydown", handleKeyPress);
-	}, [handleKeyPress]); // Corrigido de [handlePress] para [handleKeyPress]
-
-	const handleConnectWallet = async (connector: any) => {
-		setIsLoading(true);
-		setConnectingConnectorId(connector.id);
-		try {
-			await connect({ connector });
-			setIsWalletMenuOpen(false);
-		} catch (error) {
-			console.error("Connection error:", (error as Error).message);
-		} finally {
-			setIsLoading(false);
-			setConnectingConnectorId(null);
-		}
-	};
+	}, [handleKeyPress]);
 
 	const handleDisconnectWallet = () => {
 		disconnect();
@@ -458,7 +475,9 @@ export default function Home() {
 					throw new Error(
 						`Insufficient ${data.currency} balance. Available: ${balance.toFixed(
 							4,
-						)} ${data.currency}, Required: ${amountToCheck.toFixed(2)} ${data.currency}`,
+						)} ${data.currency}, Required: ${amountToCheck.toFixed(2)} ${
+							data.currency
+						}`,
 					);
 				}
 
@@ -510,8 +529,8 @@ export default function Home() {
 					minute: "2-digit",
 					hour12: true,
 				});
-				const historyEntry = {
-					user_address: address,
+				const historyEntry: Donation = {
+					user_address: address!,
 					amount: data.value,
 					currency: data.currency,
 					to_address: data.toAddress,
@@ -590,7 +609,7 @@ export default function Home() {
 				to: devAddress,
 				value: devAmountInWei,
 			});
-			const devHistoryEntry = {
+			const devHistoryEntry: Donation = {
 				user_address: address,
 				amount: amount,
 				currency: "ETH",
@@ -674,7 +693,11 @@ export default function Home() {
 			}}
 		>
 			<div
-				className={`absolute inset-0 z-0 transition-all duration-300 ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800" : "bg-black bg-opacity-50"}`}
+				className={`absolute inset-0 z-0 transition-all duration-300 ${
+					isDarkMode
+						? "bg-gradient-to-br from-gray-900 to-gray-800"
+						: "bg-black bg-opacity-50"
+				}`}
 			></div>
 			<style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -710,7 +733,9 @@ export default function Home() {
 							<button
 								onClick={() => setIsWalletMenuOpen(!isWalletMenuOpen)}
 								disabled={isConnecting}
-								className={`bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isConnecting ? "opacity-50 cursor-not-allowed" : ""} ${isDarkMode ? "hover:bg-emerald-700" : ""} hover:scale-105`}
+								className={`bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+									isConnecting ? "opacity-50 cursor-not-allowed" : ""
+								} ${isDarkMode ? "hover:bg-emerald-700" : ""} hover:scale-105`}
 								aria-label="Connect Wallet"
 								aria-expanded={isWalletMenuOpen}
 								aria-controls="wallet-menu"
@@ -729,7 +754,11 @@ export default function Home() {
 									aria-modal="true"
 								>
 									<div
-										className={`w-full max-w-sm p-6 rounded-lg shadow-lg ${isDarkMode ? "bg-gray-800 text-gray-100 border-gray-600" : "bg-white text-gray-900 border-gray-200"} border animate-slide-in`}
+										className={`w-full max-w-sm p-6 rounded-lg shadow-lg ${
+											isDarkMode
+												? "bg-gray-800 text-gray-100 border-gray-600"
+												: "bg-white text-gray-900 border-gray-200"
+										} border animate-slide-in`}
 										tabIndex={-1}
 									>
 										<h3
@@ -747,17 +776,41 @@ export default function Home() {
 													<button
 														onClick={() => handleConnectWallet(connector)}
 														disabled={isConnecting}
-														className={`w-full text-left px-4 py-2 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"} ${isConnecting && connectingConnectorId === connector.id ? "opacity-50 cursor-not-allowed" : ""}`}
+														className={`w-full text-left px-4 py-2 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 ${
+															isDarkMode
+																? "hover:bg-gray-700"
+																: "hover:bg-gray-100"
+														} ${
+															isConnecting &&
+															connectingConnectorId === connector.id
+																? "opacity-50 cursor-not-allowed"
+																: ""
+														}`}
 														aria-label={`Connect with ${connector.name} (Press ${index + 1})`}
 													>
 														{isConnecting &&
 														connectingConnectorId === connector.id ? (
 															<RiLoader4Line className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
 														) : (
-															<img
-																src={`/img/${connector.name.toLowerCase().includes("metamask") ? "metamask" : connector.name.toLowerCase().includes("walletconnect") ? "walletconnect" : connector.name.toLowerCase().includes("coinbase") ? "coinbase" : "wallet"}.png`}
+															<Image
+																src={`/img/${
+																	connector.name
+																		.toLowerCase()
+																		.includes("metamask")
+																		? "metamask"
+																		: connector.name
+																					.toLowerCase()
+																					.includes("walletconnect")
+																			? "walletconnect"
+																			: connector.name
+																						.toLowerCase()
+																						.includes("coinbase")
+																				? "coinbase"
+																				: "wallet"
+																}.png`}
 																alt={`${connector.name} icon`}
-																className="w-6 h-6"
+																width={24}
+																height={24}
 																onError={(e) =>
 																	(e.currentTarget.src = "/img/wallet.png")
 																}
@@ -770,7 +823,11 @@ export default function Home() {
 										</ul>
 										<button
 											onClick={() => setIsWalletMenuOpen(false)}
-											className={`w-full mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${isDarkMode ? "bg-gray-600 hover:bg-gray-700 text-gray-100" : "bg-gray-200 hover:bg-gray-300 text-gray-900"} hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500`}
+											className={`w-full mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+												isDarkMode
+													? "bg-gray-600 hover:bg-gray-700 text-gray-100"
+													: "bg-gray-200 hover:bg-gray-300 text-gray-900"
+											} hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500`}
 											aria-label="Close wallet selection modal"
 										>
 											Close
@@ -783,7 +840,10 @@ export default function Home() {
 				) : (
 					<>
 						<div className="text-base font-medium mb-8 text-center flex items-center justify-center gap-3 text-white drop-shadow-md w-full flex-wrap">
-							<p className="truncate max-w-xs">{`Wallet Connected: ${address.slice(0, 6)}...${address.slice(-4)}`}</p>
+							<p className="truncate max-w-xs">{`Wallet Connected: ${address.slice(
+								0,
+								6,
+							)}...${address.slice(-4)}`}</p>
 							<p>Chain ID: {chainId}</p>
 							<button
 								onClick={handleDisconnectWallet}
@@ -794,7 +854,11 @@ export default function Home() {
 							</button>
 						</div>
 						<div
-							className={`w-full p-6 sm:p-8 text-base font-medium rounded-lg shadow-md ${isDarkMode ? "bg-gray-900/95 text-gray-100 border-2 border-gray-700" : "bg-gray-50/95 text-gray-900"} backdrop-blur-md transition-all duration-300`}
+							className={`w-full p-6 sm:p-8 text-base font-medium rounded-lg shadow-md ${
+								isDarkMode
+									? "bg-gray-900/95 text-gray-100 border-2 border-gray-700"
+									: "bg-gray-50/95 text-gray-900"
+							} backdrop-blur-md transition-all duration-300`}
 						>
 							<p className="text-center leading-relaxed">
 								{isEthBalanceLoading ||
@@ -823,7 +887,11 @@ export default function Home() {
 				)}
 
 				<div
-					className={`w-full max-w-xl p-6 sm:p-8 rounded-lg shadow-md ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100 border-2 border-gray-600" : "bg-gray-50 text-gray-900"} backdrop-blur-md transition-all duration-300 animate-fade-in`}
+					className={`w-full max-w-xl p-6 sm:p-8 rounded-lg shadow-md ${
+						isDarkMode
+							? "bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100 border-2 border-gray-600"
+							: "bg-gray-50 text-gray-900"
+					} backdrop-blur-md transition-all duration-300 animate-fade-in`}
 				>
 					<div className="w-full">
 						<h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-center leading-snug">
@@ -851,7 +919,11 @@ export default function Home() {
 									value={customCommand}
 									onChange={(e) => setCustomCommand(e.target.value)}
 									placeholder="Donate 0.001 ETH to 0x... or education"
-									className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"} ${isCommandValid ? "border-blue-500" : "border-red-300"}`}
+									className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
+										isDarkMode
+											? "bg-gray-900/80 border-gray-600 text-gray-100"
+											: "bg-white/80 border-gray-200 text-gray-900"
+									} ${isCommandValid ? "border-blue-500" : "border-red-300"}`}
 									aria-label="Custom donation command"
 									aria-describedby="custom-command-description"
 								/>
@@ -872,7 +944,15 @@ export default function Home() {
 										value={amount}
 										onChange={(e) => setAmount(e.target.value)}
 										placeholder={amountPlaceholder}
-										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"} ${amount.match(/^\d+\.?\d*$/) && parseFloat(amount) > 0 ? "border-blue-500" : "border-red-300"}`}
+										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
+											isDarkMode
+												? "bg-gray-900/80 border-gray-600 text-gray-100"
+												: "bg-white/80 border-gray-200 text-gray-900"
+										} ${
+											amount.match(/^\d+\.?\d*$/) && parseFloat(amount) > 0
+												? "border-blue-500"
+												: "border-red-300"
+										}`}
 										aria-label="Donation amount"
 										aria-describedby="donation-amount-description"
 									/>
@@ -887,7 +967,11 @@ export default function Home() {
 									<select
 										value={currency}
 										onChange={(e) => setCurrency(e.target.value)}
-										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
+										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
+											isDarkMode
+												? "bg-gray-900/80 border-gray-600 text-gray-100"
+												: "bg-white/80 border-gray-200 text-gray-900"
+										}`}
 										aria-label="Select currency"
 									>
 										<option value="ETH">ETH</option>
@@ -899,7 +983,11 @@ export default function Home() {
 									<select
 										value={cause}
 										onChange={(e) => setCause(e.target.value)}
-										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
+										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
+											isDarkMode
+												? "bg-gray-900/80 border-gray-600 text-gray-100"
+												: "bg-white/80 border-gray-200 text-gray-900"
+										}`}
 										aria-label="Select cause"
 									>
 										<option value="education">Education</option>
@@ -929,7 +1017,16 @@ export default function Home() {
 								isUsdcBalanceLoading ||
 								isUsdtBalanceLoading
 							}
-							className={`w-full p-3 sm:p-4 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-center gap-2 ${!address || isLoading || !isCommandValid || isEthBalanceLoading || isUsdcBalanceLoading || isUsdtBalanceLoading ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600" : ""} hover:scale-105`}
+							className={`w-full p-3 sm:p-4 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-center gap-2 ${
+								!address ||
+								isLoading ||
+								!isCommandValid ||
+								isEthBalanceLoading ||
+								isUsdcBalanceLoading ||
+								isUsdtBalanceLoading
+									? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600"
+									: ""
+							} hover:scale-105`}
 							aria-label="Confirm Donation"
 							aria-busy={isLoading}
 						>
@@ -979,7 +1076,11 @@ export default function Home() {
 					>
 						{typeof message === "string" ? (
 							<p
-								className={`text-center text-sm font-medium ${message.includes("Error") || message.includes("Insufficient") ? "text-red-500" : "text-emerald-500"}`}
+								className={`text-center text-sm font-medium ${
+									message.includes("Error") || message.includes("Insufficient")
+										? "text-red-500"
+										: "text-emerald-500"
+								}`}
 							>
 								{message}
 							</p>
@@ -1026,7 +1127,11 @@ export default function Home() {
 						aria-modal="true"
 					>
 						<div
-							className={`w-full max-w-md p-6 rounded-lg shadow-lg ${isDarkMode ? "bg-gray-800 text-gray-100 border-gray-600" : "bg-white text-gray-900 border-gray-200"} border animate-slide-in`}
+							className={`w-full max-w-md p-6 rounded-lg shadow-lg ${
+								isDarkMode
+									? "bg-gray-800 text-gray-100 border-gray-600"
+									: "bg-white text-gray-900 border-gray-200"
+							} border animate-slide-in`}
 						>
 							<div className="flex justify-between items-center mb-4">
 								<h3
@@ -1054,7 +1159,11 @@ export default function Home() {
 									value={devDonationAmount}
 									onChange={(e) => setDevDonationAmount(e.target.value)}
 									placeholder="Enter ETH amount (e.g., 0.005)"
-									className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
+									className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+										isDarkMode
+											? "bg-gray-900/80 border-gray-600 text-gray-100"
+											: "bg-white/80 border-gray-200 text-gray-900"
+									}`}
 									aria-label="Developer donation amount"
 								/>
 							</div>
@@ -1097,10 +1206,20 @@ export default function Home() {
 
 				{isHistoryModalOpen && (
 					<div
-						className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center transition-all duration-300 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}
+						className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center transition-all duration-300 ${
+							isDarkMode ? "text-gray-100" : "text-gray-900"
+						}`}
 					>
 						<div
-							className={`w-full max-w-lg sm:max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800" : "bg-gray-50"} transition-all duration-300 transform ${isHistoryModalOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
+							className={`w-full max-w-lg sm:max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${
+								isDarkMode
+									? "bg-gradient-to-br from-gray-900 to-gray-800"
+									: "bg-gray-50"
+							} transition-all duration-300 transform ${
+								isHistoryModalOpen
+									? "scale-100 opacity-100"
+									: "scale-95 opacity-0"
+							}`}
 						>
 							<h3 className="text-2xl sm:text-3xl font-semibold mb-6 text-center leading-snug">
 								Transaction History
@@ -1109,7 +1228,11 @@ export default function Home() {
 								{history.map((entry, i) => (
 									<li
 										key={i}
-										className={`text-sm sm:text-base flex items-center justify-between p-2 rounded-lg ${i === history.length - 1 ? "bg-emerald-100 dark:bg-emerald-900/30" : ""}`}
+										className={`text-sm sm:text-base flex items-center justify-between p-2 rounded-lg ${
+											i === history.length - 1
+												? "bg-emerald-100 dark:bg-emerald-900/30"
+												: ""
+										}`}
 									>
 										<a
 											href={`https://sepolia.basescan.org/tx/${entry.tx_hash}`}
@@ -1119,7 +1242,15 @@ export default function Home() {
 										>
 											<FaCheckCircle className="text-emerald-500 dark:text-emerald-400" />
 											<span className="text-gray-700 dark:text-gray-300">
-												{`${entry.created_at} - From: ${entry.user_address.slice(0, 6)}...${entry.user_address.slice(-4)} - Donation of ${entry.amount} ${entry.currency} to ${entry.to_address.slice(0, 6)}... (Dev: ${entry.dev_donation} ${entry.currency})`}
+												{`${entry.created_at} - From: ${entry.user_address.slice(
+													0,
+													6,
+												)}...${entry.user_address.slice(-4)} - Donation of ${
+													entry.amount
+												} ${entry.currency} to ${entry.to_address.slice(
+													0,
+													6,
+												)}... (Dev: ${entry.dev_donation} ${entry.currency})`}
 											</span>
 										</a>
 									</li>
@@ -1172,10 +1303,20 @@ export default function Home() {
 
 				{isStatsModalOpen && (
 					<div
-						className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center transition-all duration-300 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}
+						className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center transition-all duration-300 ${
+							isDarkMode ? "text-gray-100" : "text-gray-900"
+						}`}
 					>
 						<div
-							className={`w-full max-w-lg sm:max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800" : "bg-gray-50"} transition-all duration-300 transform ${isStatsModalOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
+							className={`w-full max-w-lg sm:max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${
+								isDarkMode
+									? "bg-gradient-to-br from-gray-900 to-gray-800"
+									: "bg-gray-50"
+							} transition-all duration-300 transform ${
+								isStatsModalOpen
+									? "scale-100 opacity-100"
+									: "scale-95 opacity-0"
+							}`}
 						>
 							<h3 className="text-2xl sm:text-3xl font-semibold mb-6 text-center leading-snug">
 								Donation Statistics
@@ -1186,7 +1327,11 @@ export default function Home() {
 								<select
 									onChange={(e) => setFilterCause(e.target.value)}
 									value={filterCause}
-									className={`w-full sm:w-1/3 p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
+									className={`w-full sm:w-1/3 p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+										isDarkMode
+											? "bg-gray-900/80 border-gray-600 text-gray-100"
+											: "bg-white/80 border-gray-200 text-gray-900"
+									}`}
 									aria-label="Filter by cause"
 								>
 									<option value="">All Causes</option>
@@ -1198,7 +1343,11 @@ export default function Home() {
 								<select
 									onChange={(e) => setFilterCurrency(e.target.value)}
 									value={filterCurrency}
-									className={`w-full sm:w-1/3 p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
+									className={`w-full sm:w-1/3 p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+										isDarkMode
+											? "bg-gray-900/80 border-gray-600 text-gray-100"
+											: "bg-white/80 border-gray-200 text-gray-900"
+									}`}
 									aria-label="Filter by currency"
 								>
 									<option value="">All Currencies</option>

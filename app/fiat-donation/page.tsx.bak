@@ -1,0 +1,146 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
+import { FaCheckCircle, FaExclamationCircle } from "react-icons/fa";
+
+export default function FiatDonation() {
+  const [walletAddress, setWalletAddress] = useState("");
+  const [balance, setBalance] = useState("0");
+  const [amount, setAmount] = useState("");
+  const [message, setMessage] = useState<JSX.Element | null>(null);
+
+  // Gerar carteira automática ao carregar a página (simulação para testes)
+  useEffect(() => {
+    const generateWallet = async () => {
+      try {
+        const wallet = ethers.Wallet.createRandom();
+        setWalletAddress(wallet.address);
+        // Simulação: salvar a carteira privada em localStorage (NÃO usar em produção)
+        localStorage.setItem("privateKey", wallet.privateKey);
+        setMessage(
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
+            <FaCheckCircle /> Wallet generated: {wallet.address.slice(0, 6)}...
+          </div>,
+        );
+        // Simulação de saldo (substituir por integração real com blockchain no futuro)
+        setBalance("0.0");
+      } catch {
+        setMessage(
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+            <FaExclamationCircle /> Failed to generate wallet.
+          </div>,
+        );
+      }
+    };
+    generateWallet();
+  }, []);
+
+  // Função para simular envio de doação fiat (placeholder)
+  const handleFiatDonation = async () => {
+    if (!amount || parseFloat(amount) <= 0) {
+      setMessage(
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+          <FaExclamationCircle /> Please enter a valid amount.
+        </div>,
+      );
+      return;
+    }
+
+    try {
+      // Simulação: atualizar saldo (substituir por integração com API de pagamento fiat)
+      const newBalance = (parseFloat(balance) - parseFloat(amount)).toFixed(2);
+      setBalance(newBalance);
+      setMessage(
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
+          <FaCheckCircle /> Donation of ${amount} processed successfully!
+        </div>,
+      );
+      setAmount("");
+    } catch {
+      setMessage(
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+          <FaExclamationCircle /> Failed to process donation.
+        </div>,
+      );
+    }
+  };
+
+  return (
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 transition-all duration-300 bg-cover bg-center"
+      style={{
+        backgroundImage: `url('/img/10.png')`,
+        backgroundAttachment: "fixed",
+      }}
+    >
+      <div
+        className="absolute inset-0 bg-black bg-opacity-50 transition-all duration-300"
+      ></div>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
+      `}</style>
+
+      <div className="relative z-10 w-full max-w-md mx-auto flex flex-col items-center space-y-6">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-white drop-shadow-xl text-center">
+          Fiat Donation
+        </h1>
+
+        <div
+          className="w-full p-6 rounded-lg shadow-md bg-gray-50/95 dark:bg-gray-900/95 text-gray-900 dark:text-gray-100 backdrop-blur-md transition-all duration-300"
+        >
+          <h2 className="text-2xl font-semibold mb-4 text-center">
+            Donate with Fiat
+          </h2>
+          <p className="text-sm text-center mb-4 text-gray-600 dark:text-gray-400">
+            This is a placeholder for fiat donations. Enter an amount to simulate a donation.
+          </p>
+
+          {walletAddress && (
+            <p className="text-sm text-center mb-4 text-gray-600 dark:text-gray-400">
+              Wallet: {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)} | Balance: ${balance}
+            </p>
+          )}
+
+          <div className="mb-4">
+            <input
+              type="number"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Enter amount in USD"
+              className="w-full p-3 rounded-lg border border-gray-200 dark:border-gray-600 bg-white/80 dark:bg-gray-900/80 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-300"
+              aria-label="Donation amount in USD"
+            />
+          </div>
+
+          <button
+            onClick={handleFiatDonation}
+            disabled={!amount || parseFloat(amount) <= 0}
+            className={`w-full p-3 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white transition-all duration-300 shadow-md font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+              !amount || parseFloat(amount) <= 0
+                ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed"
+                : "hover:scale-105"
+            }`}
+            aria-label="Submit Fiat Donation"
+          >
+            Donate
+          </button>
+        </div>
+
+        {message && (
+          <div
+            role="alert"
+            aria-live="polite"
+            className="w-full max-w-md mx-auto mt-4 transition-all duration-300"
+          >
+            {message}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
