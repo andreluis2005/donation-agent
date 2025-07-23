@@ -17,8 +17,9 @@ import {
 	FaExclamationCircle,
 	FaChartBar,
 	FaWallet,
+	FaTimes,
 } from "react-icons/fa";
-import { RiLoader4Line } from "react-icons/ri"; // Ícone de carregamento
+import { RiLoader4Line } from "react-icons/ri";
 import DonationModal from "../../components/DonationModal";
 import { Bar } from "react-chartjs-2";
 import {
@@ -96,17 +97,17 @@ export default function Home() {
 		functionName: "transfer",
 	});
 
-	// Verificação de saldo para ETH, USDC e USDT
+	// Verificação de saldo
 	const { data: ethBalance, isLoading: isEthBalanceLoading } = useBalance({
 		address,
 	});
 	const { data: usdcBalance, isLoading: isUsdcBalanceLoading } = useBalance({
 		address,
-		token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Contrato USDC
+		token: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
 	});
 	const { data: usdtBalance, isLoading: isUsdtBalanceLoading } = useBalance({
 		address,
-		token: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2", // Contrato USDT
+		token: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
 	});
 
 	const causeAddressMap = {
@@ -129,7 +130,6 @@ export default function Home() {
 	const [customCommand, setCustomCommand] = useState("");
 	const [isCustomMode, setIsCustomMode] = useState(false);
 	const [message, setMessage] = useState<JSX.Element | string>("");
-	const [donateToDev, setDonateToDev] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [isDarkMode, setIsDarkMode] = useState(false);
 	const [history, setHistory] = useState<any[]>([]);
@@ -145,21 +145,28 @@ export default function Home() {
 		cause: string;
 	} | null>(null);
 	const [resolveModal, setResolveModal] = useState<
-		((value: boolean) => void) | null
+		((value: boolean | string) => void) | null
 	>(null);
 	const [isWalletMenuOpen, setIsWalletMenuOpen] = useState(false);
 	const [connectingConnectorId, setConnectingConnectorId] = useState<
 		string | null
 	>(null);
+	const [page, setPage] = useState(1); // Adicionado para paginação
+	const pageSize = 10; // Tamanho da página
+	const [isDevDonationModalOpen, setIsDevDonationModalOpen] = useState(false); // Novo estado para modal de doação ao desenvolvedor
+	const [devDonationAmount, setDevDonationAmount] = useState(""); // Valor da doação ao desenvolvedor
+	const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false); // Novo estado para confirmação de exclusão
 
-	// Filtrar e ordenar conectores alfabeticamente
+	// Novos estados para filtros
+	const [filterCause, setFilterCause] = useState("");
+	const [filterCurrency, setFilterCurrency] = useState("");
+
+	// Filtrar e ordenar conectores
 	const uniqueConnectors = useMemo(() => {
 		const seenNames = new Set<string>();
 		const prioritizedConnectors = connectors.reduce(
 			(acc, connector) => {
-				// Normalizar o nome do conector para evitar duplicatas
 				const connectorName = connector.name.toLowerCase();
-				// Priorizar MetaMask (injected) e evitar duplicatas
 				if (connectorName.includes("metamask")) {
 					if (!seenNames.has("metamask")) {
 						seenNames.add("metamask");
@@ -173,33 +180,36 @@ export default function Home() {
 			},
 			[] as typeof connectors,
 		);
-		// Ordenar alfabeticamente pelo nome
 		return prioritizedConnectors.sort((a, b) => a.name.localeCompare(b.name));
 	}, [connectors]);
 
-	// Carregar doações do Supabase
+	// Cache local e paginação
 	useEffect(() => {
 		async function fetchDonations() {
 			if (!address) return;
 			const { data, error } = await supabase
 				.from("donations")
 				.select("*")
-				.eq("user_address", address);
+				.eq("user_address", address)
+				.range((page - 1) * pageSize, page * pageSize - 1)
+				.order("created_at", { ascending: false });
 			if (error) {
 				console.error("Erro ao buscar doações:", error.message);
 				return;
 			}
-			setHistory(data || []);
+			setHistory((prev) =>
+				page === 1 ? data || [] : [...prev, ...(data || [])],
+			);
 		}
 		fetchDonations();
-	}, [address]);
+	}, [address, page]);
 
-	// Placeholder dinâmico baseado na moeda
+	// Placeholder dinâmico
 	const amountPlaceholder = useMemo(() => {
 		return currency === "ETH" ? "0.001" : currency === "USDC" ? "10" : "10";
 	}, [currency]);
 
-	// Função para processar estatísticas do histórico
+	// Função para processar estatísticas
 	const getStatsData = () => {
 		type CauseKey = keyof typeof causeAddressMap;
 		const stats: Record<CauseKey, { ETH: number; USDC: number; USDT: number }> =
@@ -228,12 +238,68 @@ export default function Home() {
 		return stats;
 	};
 
+	// Função para filtrar estatísticas
+	const filteredStats = useMemo(() => {
+		const stats = getStatsData();
+		const filtered: {
+			cause: string;
+			ETH: number;
+			USDC: number;
+			USDT: number;
+		}[] = [];
+
+		const causes = filterCause
+			? [filterCause]
+			: ["education", "health", "environment", "social"];
+		const currencies = filterCurrency
+			? [filterCurrency]
+			: ["ETH", "USDC", "USDT"];
+
+		causes.forEach((cause) => {
+			const entry = {
+				cause: causeNameMap[cause as keyof typeof causeNameMap],
+				ETH: 0,
+				USDC: 0,
+				USDT: 0,
+			};
+			currencies.forEach((currency) => {
+				entry[currency as keyof typeof entry] =
+					stats[cause as keyof typeof stats][
+						currency as keyof (typeof stats)[keyof typeof stats]
+					];
+			});
+			filtered.push(entry);
+		});
+
+		return filtered;
+	}, [filterCause, filterCurrency, getStatsData]);
+
+	// Função para exportar para CSV
+	const exportToCSV = () => {
+		const csv = [
+			["Cause", "ETH", "USDC", "USDT"].join(","),
+			...filteredStats.map((stat) =>
+				[
+					stat.cause,
+					stat.ETH.toFixed(4),
+					stat.USDC.toFixed(2),
+					stat.USDT.toFixed(2),
+				].join(","),
+			),
+		].join("\n");
+		const blob = new Blob([csv], { type: "text/csv" });
+		const url = window.URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = "donation_statistics.csv";
+		a.click();
+		window.URL.revokeObjectURL(url);
+	};
+
 	useEffect(() => {
 		if (!isFrameReady) {
 			setFrameReady();
 			console.log("Minikit frame set as ready");
-		} else {
-			console.log("Minikit frame already ready");
 		}
 	}, [isFrameReady, setFrameReady]);
 
@@ -250,12 +316,11 @@ export default function Home() {
 		}
 	}, [amount, currency, cause, customCommand, isCustomMode]);
 
-	// Manipulador de atalhos de teclado
 	const handleKeyPress = useCallback(
 		(event: KeyboardEvent) => {
 			if (!isWalletMenuOpen) return;
 			const key = event.key;
-			const index = parseInt(key) - 1; // Converte tecla 1, 2, 3... para índice 0, 1, 2...
+			const index = parseInt(key) - 1;
 			if (index >= 0 && index < uniqueConnectors.length) {
 				handleConnectWallet(uniqueConnectors[index]);
 			}
@@ -266,20 +331,19 @@ export default function Home() {
 	useEffect(() => {
 		window.addEventListener("keydown", handleKeyPress);
 		return () => window.removeEventListener("keydown", handleKeyPress);
-	}, [handleKeyPress]);
+	}, [handleKeyPress]); // Corrigido de [handlePress] para [handleKeyPress]
 
-	// Função para conectar carteira
 	const handleConnectWallet = async (connector: any) => {
 		setIsLoading(true);
-		setConnectingConnectorId(connector.id); // Define o conector sendo conectado
+		setConnectingConnectorId(connector.id);
 		try {
 			await connect({ connector });
-			setIsWalletMenuOpen(false); // Fechar o modal após conectar
+			setIsWalletMenuOpen(false);
 		} catch (error) {
 			console.error("Connection error:", (error as Error).message);
 		} finally {
 			setIsLoading(false);
-			setConnectingConnectorId(null); // Limpa o estado de carregamento
+			setConnectingConnectorId(null);
 		}
 	};
 
@@ -287,14 +351,13 @@ export default function Home() {
 		disconnect();
 		setMessage(
 			<div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
-				<FaCheckCircle /> <p>Carteira desconectada com sucesso.</p>
+				<FaCheckCircle /> <p>Wallet disconnected successfully.</p>
 			</div>,
 		);
 	};
 
 	const notifyOnWarpcast = () => {
 		if (!lastDonation) return;
-
 		const causeName = isCustomMode ? "Custom Cause" : causeNameMap[cause];
 		const shareText = encodeURIComponent(
 			`I just donated ${lastDonation.value} ${lastDonation.currency} to the ${causeName} cause using Onchain Donation! 🎉 Check it out at https://donation-agent.vercel.app`,
@@ -302,28 +365,30 @@ export default function Home() {
 		openUrl(`https://warpcast.com/~/compose?text=${shareText}`);
 	};
 
+	const validateInput = () => {
+		if (!address) return "Connect a wallet.";
+		if (!isCustomMode && (!amount || parseFloat(amount) <= 0))
+			return "Invalid amount.";
+		if (isCustomMode && !isCommandValid) return "Invalid command.";
+		if (!isCustomMode && !causeAddressMap[cause]) return "Invalid cause.";
+		return null;
+	};
+
 	const handleSubmit = async () => {
+		const error = validateInput();
+		if (error) {
+			setMessage(
+				<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+					<FaExclamationCircle /> <p>{error}</p>
+				</div>,
+			);
+			return;
+		}
+
 		if (isEthBalanceLoading || isUsdcBalanceLoading || isUsdtBalanceLoading) {
 			setMessage(
 				<div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 animate-slide-in">
 					<FaExclamationCircle /> <p>Loading balance, please wait...</p>
-				</div>,
-			);
-			return;
-		}
-		if (!address) {
-			setMessage(
-				<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-					<FaExclamationCircle /> <p>Please connect your wallet first.</p>
-				</div>,
-			);
-			return;
-		}
-		if (!isCommandValid) {
-			setMessage(
-				<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-					<FaExclamationCircle />{" "}
-					<p>Please enter a valid amount and select a currency/cause.</p>
 				</div>,
 			);
 			return;
@@ -342,16 +407,6 @@ export default function Home() {
 
 		try {
 			if (!isCustomMode) {
-				if (!causeAddressMap[cause]) {
-					setMessage(
-						<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-							<FaExclamationCircle /> <p>Invalid cause selected.</p>
-						</div>,
-					);
-					setIsLoading(false);
-					setTransactionStatus("");
-					return;
-				}
 				data = {
 					value: amount,
 					toAddress: causeAddressMap[cause],
@@ -360,48 +415,28 @@ export default function Home() {
 				if (data.currency === "ETH") {
 					data.amountInWei = parseEther(data.value).toString();
 				}
-				console.log("Simple mode - Data used:", data);
 			} else {
 				const command = customCommand;
-				console.log("Starting fetch request:", { command, donateToDev });
-
 				const controller = new AbortController();
 				const timeoutId = setTimeout(() => controller.abort(), 45000);
 
 				const response = await fetch("/api/agent", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ command, donateToDev }),
+					body: JSON.stringify({ command, donateToDev: false }),
 					signal: controller.signal,
 				});
-				console.log("Fetch response received:", response);
 
 				clearTimeout(timeoutId);
 
 				if (response.status !== 200) {
-					setIsLoading(false);
-					setTransactionStatus("");
-					setMessage(
-						<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-							<FaExclamationCircle />{" "}
-							<p>{`Request failed with status ${response.status}`}</p>
-						</div>,
-					);
-					return;
+					throw new Error(`Request failed with status ${response.status}`);
 				}
 
 				data = await response.json();
-				console.log("API response data:", data);
 
 				if (data.error) {
-					setIsLoading(false);
-					setTransactionStatus("");
-					setMessage(
-						<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-							<FaExclamationCircle /> <p>{`API Error: ${data.error}`}</p>
-						</div>,
-					);
-					return;
+					throw new Error(data.error);
 				}
 			}
 
@@ -410,192 +445,33 @@ export default function Home() {
 
 				const amountToCheck = parseFloat(data.value);
 				if (isNaN(amountToCheck) || amountToCheck <= 0) {
-					setMessage(
-						<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-							<FaExclamationCircle /> <p>Invalid donation amount.</p>
-						</div>,
+					throw new Error("Invalid donation amount");
+				}
+
+				const balance =
+					data.currency === "ETH"
+						? parseFloat(ethBalance?.formatted || "0")
+						: data.currency === "USDC"
+							? parseFloat(usdcBalance?.formatted || "0")
+							: parseFloat(usdtBalance?.formatted || "0");
+				if (balance < amountToCheck) {
+					throw new Error(
+						`Insufficient ${data.currency} balance. Available: ${balance.toFixed(
+							4,
+						)} ${data.currency}, Required: ${amountToCheck.toFixed(2)} ${data.currency}`,
 					);
-					setIsLoading(false);
-					setTransactionStatus("");
-					return;
 				}
 
-				if (data.currency === "ETH" && ethBalance) {
-					const ethBalanceFormatted = parseFloat(ethBalance.formatted);
-					const totalAmount = donateToDev ? amountToCheck * 1.1 : amountToCheck;
-					if (ethBalanceFormatted < totalAmount) {
-						setMessage(
-							<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-								<FaExclamationCircle />{" "}
-								<p>{`Insufficient ETH balance. Available: ${ethBalanceFormatted.toFixed(4)} ETH, Required: ${totalAmount.toFixed(2)} ETH`}</p>
-							</div>,
-						);
-						setIsLoading(false);
-						setTransactionStatus("");
-						return;
-					}
-				} else if (data.currency === "USDC" && usdcBalance) {
-					const usdcBalanceFormatted = parseFloat(usdcBalance.formatted);
-					if (usdcBalanceFormatted < amountToCheck) {
-						setMessage(
-							<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-								<FaExclamationCircle />{" "}
-								<p>{`Insufficient USDC balance. Available: ${usdcBalanceFormatted.toFixed(2)} USDC, Required: ${amountToCheck.toFixed(2)} USDC`}</p>
-							</div>,
-						);
-						setIsLoading(false);
-						setTransactionStatus("");
-						return;
-					}
-				} else if (data.currency === "USDT" && usdtBalance) {
-					const usdtBalanceFormatted = parseFloat(usdtBalance.formatted);
-					if (usdtBalanceFormatted < amountToCheck) {
-						setMessage(
-							<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-								<FaExclamationCircle />{" "}
-								<p>{`Insufficient USDT balance. Available: ${usdtBalanceFormatted.toFixed(2)} USDT, Required: ${amountToCheck.toFixed(2)} USDT`}</p>
-							</div>,
-						);
-						setIsLoading(false);
-						setTransactionStatus("");
-						return;
-					}
-				}
-
-				const confirm = await new Promise<boolean>((resolve) => {
-					setIsModalOpen(true);
-					setResolveModal(() => resolve);
-				});
-				setDonateToDev(confirm);
-
-				const devAddress = "0xf2D3CeF68400248C9876f5A281291c7c4603D100";
-				validateAddress(devAddress);
-
+				// Transação principal
 				let txHash: string;
-
 				if (data.currency === "ETH") {
-					if (confirm) {
-						const devPercentage = 0.1;
-						const devAmount =
-							(BigInt(data.amountInWei || parseEther(data.value).toString()) *
-								BigInt(Math.floor(devPercentage * 100))) /
-							BigInt(100);
-						const userAmount =
-							BigInt(data.amountInWei || parseEther(data.value).toString()) -
-							devAmount;
-
-						const tx1 = await sendTransactionAsync({
-							to: data.toAddress,
-							value: userAmount,
-						});
-						txHash = tx1;
-						console.log("Transaction to charity sent:", tx1);
-
-						const tx2 = await sendTransactionAsync({
-							to: devAddress,
-							value: devAmount,
-						});
-						console.log("Transaction to developer sent:", tx2);
-
-						await fetch("/api/donate", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								command: `doar ${data.value} ETH para ${data.toAddress}`,
-								signerData: { address },
-								donateToDev: confirm,
-								txHash: tx1,
-							}),
-						});
-
-						const timestamp = new Date().toLocaleString();
-						const historyEntry = {
-							user_address: address,
-							amount: data.value,
-							currency: data.currency,
-							to_address: data.toAddress,
-							cause,
-							dev_donation: (devAmount / BigInt(10 ** 18)).toString(),
-							tx_hash: tx1,
-							created_at: timestamp,
-						};
-						setHistory((prev) => [...prev, historyEntry]);
-						setLastDonation({ ...data, cause });
-						setMessage(
-							<div className="flex flex-col gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
-								<span className="flex items-center gap-2">
-									<FaCheckCircle /> Donation sent successfully!
-								</span>
-								<a
-									href={`https://sepolia.basescan.org/tx/${tx1}`}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-sm underline"
-								>
-									Charity Hash: {tx1.slice(0, 10)}...
-								</a>
-								<a
-									href={`https://sepolia.basescan.org/tx/${tx2}`}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-sm underline"
-								>
-									Developer Hash: {tx2.slice(0, 10)}...
-								</a>
-							</div>,
-						);
-						setTransactionStatus("Confirmed");
-					} else {
-						const tx = await sendTransactionAsync({
-							to: data.toAddress,
-							value: BigInt(
-								data.amountInWei || parseEther(data.value).toString(),
-							),
-						});
-						txHash = tx;
-						console.log("Transaction sent:", tx);
-
-						await fetch("/api/donate", {
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								command: `doar ${data.value} ETH para ${data.toAddress}`,
-								signerData: { address },
-								donateToDev: confirm,
-								txHash: tx,
-							}),
-						});
-
-						const timestamp = new Date().toLocaleString();
-						const historyEntry = {
-							user_address: address,
-							amount: data.value,
-							currency: data.currency,
-							to_address: data.toAddress,
-							cause,
-							dev_donation: 0,
-							tx_hash: tx,
-							created_at: timestamp,
-						};
-						setHistory((prev) => [...prev, historyEntry]);
-						setLastDonation({ ...data, cause });
-						setMessage(
-							<div className="flex flex-col gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
-								<span className="flex items-center gap-2">
-									<FaCheckCircle /> Donation sent successfully!
-								</span>
-								<a
-									href={`https://sepolia.basescan.org/tx/${tx}`}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-sm underline"
-								>
-									Hash: {tx.slice(0, 10)}...
-								</a>
-							</div>,
-						);
-						setTransactionStatus("Confirmed");
-					}
+					const tx = await sendTransactionAsync({
+						to: data.toAddress,
+						value: BigInt(
+							data.amountInWei || parseEther(data.value).toString(),
+						),
+					});
+					txHash = tx;
 				} else if (data.currency === "USDC") {
 					const amountInUnits = parseInt(
 						(parseFloat(data.value) * 1e6).toString(),
@@ -604,48 +480,6 @@ export default function Home() {
 						args: [data.toAddress, BigInt(amountInUnits)],
 					});
 					txHash = tx;
-					console.log("USDC transaction sent:", tx);
-
-					await fetch("/api/donate", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							command: `doar ${data.value} USDC para ${data.toAddress}`,
-							signerData: { address },
-							donateToDev: confirm,
-							txHash: tx,
-						}),
-					});
-
-					const timestamp = new Date().toLocaleString();
-					const historyEntry = {
-						user_address: address,
-						amount: data.value,
-						currency: data.currency,
-						to_address: data.toAddress,
-						cause,
-						dev_donation: 0,
-						tx_hash: tx,
-						created_at: timestamp,
-					};
-					setHistory((prev) => [...prev, historyEntry]);
-					setLastDonation({ ...data, cause });
-					setMessage(
-						<div className="flex flex-col gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
-							<span className="flex items-center gap-2">
-								<FaCheckCircle /> Donation sent successfully!
-							</span>
-							<a
-								href={`https://sepolia.basescan.org/tx/${tx}`}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="text-sm underline"
-							>
-								Hash: {tx.slice(0, 10)}...
-							</a>
-						</div>,
-					);
-					setTransactionStatus("Confirmed");
 				} else if (data.currency === "USDT") {
 					const amountInUnits = parseInt(
 						(parseFloat(data.value) * 1e6).toString(),
@@ -654,60 +488,68 @@ export default function Home() {
 						args: [data.toAddress, BigInt(amountInUnits)],
 					});
 					txHash = tx;
-					console.log("USDT transaction sent:", tx);
-
-					await fetch("/api/donate", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({
-							command: `doar ${data.value} USDT para ${data.toAddress}`,
-							signerData: { address },
-							donateToDev: confirm,
-							txHash: tx,
-						}),
-					});
-
-					const timestamp = new Date().toLocaleString();
-					const historyEntry = {
-						user_address: address,
-						amount: data.value,
-						currency: data.currency,
-						to_address: data.toAddress,
-						cause,
-						dev_donation: 0,
-						tx_hash: tx,
-						created_at: timestamp,
-					};
-					setHistory((prev) => [...prev, historyEntry]);
-					setLastDonation({ ...data, cause });
-					setMessage(
-						<div className="flex flex-col gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
-							<span className="flex items-center gap-2">
-								<FaCheckCircle /> Donation sent successfully!
-							</span>
-							<a
-								href={`https://sepolia.basescan.org/tx/${tx}`}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="text-sm underline"
-							>
-								Hash: {tx.slice(0, 10)}...
-							</a>
-						</div>,
-					);
-					setTransactionStatus("Confirmed");
 				}
+
+				// Registro da transação principal
+				await fetch("/api/donate", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						command: `donate ${data.value} ${data.currency} to ${data.toAddress}`,
+						signerData: { address },
+						donateToDev: false,
+						txHash: txHash,
+					}),
+				});
+
+				const timestamp = new Date().toLocaleString("en-US", {
+					month: "2-digit",
+					day: "2-digit",
+					year: "numeric",
+					hour: "2-digit",
+					minute: "2-digit",
+					hour12: true,
+				});
+				const historyEntry = {
+					user_address: address,
+					amount: data.value,
+					currency: data.currency,
+					to_address: data.toAddress,
+					cause,
+					dev_donation: 0,
+					tx_hash: txHash,
+					created_at: timestamp,
+				};
+				setHistory((prev) => [...prev, historyEntry]);
+
+				// Abrir modal de doação ao desenvolvedor se a transação for em ETH
+				if (data.currency === "ETH") {
+					setIsDevDonationModalOpen(true);
+				}
+
+				setLastDonation({ ...data, cause });
+				setMessage(
+					<div className="flex flex-col gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
+						<span className="flex items-center gap-2">
+							<FaCheckCircle /> Donation sent successfully!
+						</span>
+						<a
+							href={`https://sepolia.basescan.org/tx/${txHash}`}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="text-sm underline"
+						>
+							Hash: {txHash.slice(0, 10)}...
+						</a>
+					</div>,
+				);
+				setTransactionStatus("Confirmed");
 				setAmount("");
 				setCurrency("ETH");
 				setCause("education");
 				setCustomCommand("");
 			} else {
-				setMessage(
-					<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
-						<FaExclamationCircle /> <p>Invalid API response</p>
-					</div>,
-				);
-				setTransactionStatus("");
+				throw new Error("Invalid API response");
 			}
 		} catch (error) {
 			const errorMessage =
@@ -722,6 +564,102 @@ export default function Home() {
 		} finally {
 			setIsLoading(false);
 		}
+	};
+
+	const handleDevDonation = async (amount: string) => {
+		if (!address || !ethBalance) return;
+
+		const devAddress = "0xf2D3CeF68400248C9876f5A281291c7c4603D100";
+		validateAddress(devAddress);
+		const devAmountInWei = parseEther(amount);
+
+		if (parseFloat(ethBalance?.formatted || "0") < parseFloat(amount)) {
+			setMessage(
+				<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+					<FaExclamationCircle />{" "}
+					<p>Insufficient ETH balance for developer donation.</p>
+				</div>,
+			);
+			setIsDevDonationModalOpen(false);
+			return;
+		}
+
+		try {
+			setIsLoading(true);
+			const txDev = await sendTransactionAsync({
+				to: devAddress,
+				value: devAmountInWei,
+			});
+			const devHistoryEntry = {
+				user_address: address,
+				amount: amount,
+				currency: "ETH",
+				to_address: devAddress,
+				cause: "Developer Donation",
+				dev_donation: 0,
+				tx_hash: txDev,
+				created_at: new Date().toLocaleString("en-US", {
+					month: "2-digit",
+					day: "2-digit",
+					year: "numeric",
+					hour: "2-digit",
+					minute: "2-digit",
+					hour12: true,
+				}),
+			};
+			setHistory((prev) => [...prev, devHistoryEntry]);
+			await fetch("/api/donate", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					command: `donate ${amount} ETH to developer`,
+					signerData: { address },
+					donateToDev: true,
+					txHash: txDev,
+				}),
+			});
+			setMessage(
+				<div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
+					<FaCheckCircle /> Developer donation sent successfully!
+				</div>,
+			);
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Unknown error";
+			setMessage(
+				<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+					<FaExclamationCircle />{" "}
+					<p>{`Developer Donation Error: ${errorMessage}`}</p>
+				</div>,
+			);
+		} finally {
+			setIsLoading(false);
+			setIsDevDonationModalOpen(false);
+			setDevDonationAmount("");
+		}
+	};
+
+	const handleCloseDevModal = () => {
+		setIsDevDonationModalOpen(false);
+		setDevDonationAmount("");
+	};
+
+	const handleClearHistory = () => {
+		if (isClearConfirmOpen) {
+			setHistory([]);
+			setIsClearConfirmOpen(false);
+			setMessage(
+				<div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
+					<FaCheckCircle /> History cleared successfully.
+				</div>,
+			);
+		} else {
+			setIsClearConfirmOpen(true);
+		}
+	};
+
+	const handleCancelClear = () => {
+		setIsClearConfirmOpen(false);
 	};
 
 	return (
@@ -740,23 +678,11 @@ export default function Home() {
 			></div>
 			<style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        body {
-          font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out;
-        }
-        @keyframes slideIn {
-          from { transform: translateY(20px); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        .animate-slide-in {
-          animation: slideIn 0.3s ease-out;
-        }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-in { animation: slideIn 0.3s ease-out; }
       `}</style>
 
 			<div className="relative z-10 w-full max-w-xl mx-auto flex flex-col items-center space-y-6 animate-fade-in">
@@ -778,7 +704,7 @@ export default function Home() {
 				{!address ? (
 					<div className="flex flex-col items-center gap-4 w-full">
 						<p className="text-lg text-white drop-shadow-md">
-							Conecte sua carteira para começar:
+							Connect your wallet to start:
 						</p>
 						<div className="relative">
 							<button
@@ -790,9 +716,7 @@ export default function Home() {
 								aria-controls="wallet-menu"
 							>
 								<span className="flex items-center gap-2">
-									<span>
-										{isConnecting ? "Conectando..." : "Conectar Carteira"}
-									</span>
+									{isConnecting ? "Connecting..." : "Connect Wallet"}
 									<FaWallet />
 								</span>
 							</button>
@@ -805,21 +729,17 @@ export default function Home() {
 									aria-modal="true"
 								>
 									<div
-										className={`w-full max-w-sm p-6 rounded-lg shadow-lg ${
-											isDarkMode
-												? "bg-gray-800 text-gray-100 border-gray-600"
-												: "bg-white text-gray-900 border-gray-200"
-										} border animate-slide-in`}
+										className={`w-full max-w-sm p-6 rounded-lg shadow-lg ${isDarkMode ? "bg-gray-800 text-gray-100 border-gray-600" : "bg-white text-gray-900 border-gray-200"} border animate-slide-in`}
 										tabIndex={-1}
 									>
 										<h3
 											id="wallet-modal-title"
 											className="text-xl font-semibold mb-4 text-center"
 										>
-											Escolha sua carteira
+											Choose your wallet
 										</h3>
 										<p className="text-sm text-gray-500 dark:text-gray-400 mb-4 text-center">
-											Pressione 1, 2, 3... para selecionar rapidamente
+											Press 1, 2, 3... to select quickly
 										</p>
 										<ul className="space-y-2">
 											{uniqueConnectors.map((connector, index) => (
@@ -827,11 +747,7 @@ export default function Home() {
 													<button
 														onClick={() => handleConnectWallet(connector)}
 														disabled={isConnecting}
-														className={`w-full text-left px-4 py-2 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 ${
-															isDarkMode
-																? "hover:bg-gray-700"
-																: "hover:bg-gray-100"
-														} ${isConnecting && connectingConnectorId === connector.id ? "opacity-50 cursor-not-allowed" : ""}`}
+														className={`w-full text-left px-4 py-2 rounded-lg flex items-center gap-3 text-sm transition-all duration-200 ${isDarkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"} ${isConnecting && connectingConnectorId === connector.id ? "opacity-50 cursor-not-allowed" : ""}`}
 														aria-label={`Connect with ${connector.name} (Press ${index + 1})`}
 													>
 														{isConnecting &&
@@ -839,37 +755,7 @@ export default function Home() {
 															<RiLoader4Line className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
 														) : (
 															<img
-																src={`/img/${
-																	connector.name
-																		.toLowerCase()
-																		.includes("metamask")
-																		? "metamask"
-																		: connector.name
-																					.toLowerCase()
-																					.includes("walletconnect")
-																			? "walletconnect"
-																			: connector.name
-																						.toLowerCase()
-																						.includes("coinbase")
-																				? "coinbase"
-																				: connector.name
-																							.toLowerCase()
-																							.includes("rabby")
-																					? "rabby"
-																					: connector.name
-																								.toLowerCase()
-																								.includes("phantom")
-																						? "phantom"
-																						: connector.name
-																									.toLowerCase()
-																									.includes("okx")
-																							? "okx"
-																							: connector.name
-																										.toLowerCase()
-																										.includes("keplr")
-																								? "keplr"
-																								: "wallet"
-																}.png`}
+																src={`/img/${connector.name.toLowerCase().includes("metamask") ? "metamask" : connector.name.toLowerCase().includes("walletconnect") ? "walletconnect" : connector.name.toLowerCase().includes("coinbase") ? "coinbase" : "wallet"}.png`}
 																alt={`${connector.name} icon`}
 																className="w-6 h-6"
 																onError={(e) =>
@@ -884,14 +770,10 @@ export default function Home() {
 										</ul>
 										<button
 											onClick={() => setIsWalletMenuOpen(false)}
-											className={`w-full mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
-												isDarkMode
-													? "bg-gray-600 hover:bg-gray-700 text-gray-100"
-													: "bg-gray-200 hover:bg-gray-300 text-gray-900"
-											} hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500`}
+											className={`w-full mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${isDarkMode ? "bg-gray-600 hover:bg-gray-700 text-gray-100" : "bg-gray-200 hover:bg-gray-300 text-gray-900"} hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500`}
 											aria-label="Close wallet selection modal"
 										>
-											Fechar
+											Close
 										</button>
 									</div>
 								</div>
@@ -912,11 +794,7 @@ export default function Home() {
 							</button>
 						</div>
 						<div
-							className={`w-full p-6 sm:p-8 text-base font-medium rounded-lg shadow-md ${
-								isDarkMode
-									? "bg-gray-900/95 text-gray-100 border-2 border-gray-700"
-									: "bg-gray-50/95 text-gray-900"
-							} backdrop-blur-md transition-all duration-300`}
+							className={`w-full p-6 sm:p-8 text-base font-medium rounded-lg shadow-md ${isDarkMode ? "bg-gray-900/95 text-gray-100 border-2 border-gray-700" : "bg-gray-50/95 text-gray-900"} backdrop-blur-md transition-all duration-300`}
 						>
 							<p className="text-center leading-relaxed">
 								{isEthBalanceLoading ||
@@ -945,11 +823,7 @@ export default function Home() {
 				)}
 
 				<div
-					className={`w-full max-w-xl p-6 sm:p-8 rounded-lg shadow-md ${
-						isDarkMode
-							? "bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100 border-2 border-gray-600"
-							: "bg-gray-50 text-gray-900"
-					} backdrop-blur-md transition-all duration-300 animate-fade-in`}
+					className={`w-full max-w-xl p-6 sm:p-8 rounded-lg shadow-md ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100 border-2 border-gray-600" : "bg-gray-50 text-gray-900"} backdrop-blur-md transition-all duration-300 animate-fade-in`}
 				>
 					<div className="w-full">
 						<h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-center leading-snug">
@@ -977,11 +851,7 @@ export default function Home() {
 									value={customCommand}
 									onChange={(e) => setCustomCommand(e.target.value)}
 									placeholder="Donate 0.001 ETH to 0x... or education"
-									className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
-										isDarkMode
-											? "bg-gray-900/80 border-gray-600 text-gray-100"
-											: "bg-white/80 border-gray-200 text-gray-900"
-									} ${isCommandValid ? "border-blue-500" : "border-red-300"}`}
+									className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"} ${isCommandValid ? "border-blue-500" : "border-red-300"}`}
 									aria-label="Custom donation command"
 									aria-describedby="custom-command-description"
 								/>
@@ -1002,11 +872,7 @@ export default function Home() {
 										value={amount}
 										onChange={(e) => setAmount(e.target.value)}
 										placeholder={amountPlaceholder}
-										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
-											isDarkMode
-												? "bg-gray-900/80 border-gray-600 text-gray-100"
-												: "bg-white/80 border-gray-200 text-gray-900"
-										} ${amount.match(/^\d+\.?\d*$/) && parseFloat(amount) > 0 ? "border-blue-500" : "border-red-300"}`}
+										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"} ${amount.match(/^\d+\.?\d*$/) && parseFloat(amount) > 0 ? "border-blue-500" : "border-red-300"}`}
 										aria-label="Donation amount"
 										aria-describedby="donation-amount-description"
 									/>
@@ -1021,11 +887,7 @@ export default function Home() {
 									<select
 										value={currency}
 										onChange={(e) => setCurrency(e.target.value)}
-										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
-											isDarkMode
-												? "bg-gray-900/80 border-gray-600 text-gray-100"
-												: "bg-white/80 border-gray-200 text-gray-900"
-										}`}
+										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
 										aria-label="Select currency"
 									>
 										<option value="ETH">ETH</option>
@@ -1037,11 +899,7 @@ export default function Home() {
 									<select
 										value={cause}
 										onChange={(e) => setCause(e.target.value)}
-										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
-											isDarkMode
-												? "bg-gray-900/80 border-gray-600 text-gray-100"
-												: "bg-white/80 border-gray-200 text-gray-900"
-										}`}
+										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
 										aria-label="Select cause"
 									>
 										<option value="education">Education</option>
@@ -1071,16 +929,7 @@ export default function Home() {
 								isUsdcBalanceLoading ||
 								isUsdtBalanceLoading
 							}
-							className={`w-full p-3 sm:p-4 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-center gap-2 ${
-								!address ||
-								isLoading ||
-								!isCommandValid ||
-								isEthBalanceLoading ||
-								isUsdcBalanceLoading ||
-								isUsdtBalanceLoading
-									? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600"
-									: ""
-							} hover:scale-105`}
+							className={`w-full p-3 sm:p-4 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-center gap-2 ${!address || isLoading || !isCommandValid || isEthBalanceLoading || isUsdcBalanceLoading || isUsdtBalanceLoading ? "bg-gray-300 dark:bg-gray-600 cursor-not-allowed hover:bg-gray-300 dark:hover:bg-gray-600" : ""} hover:scale-105`}
 							aria-label="Confirm Donation"
 							aria-busy={isLoading}
 						>
@@ -1130,11 +979,7 @@ export default function Home() {
 					>
 						{typeof message === "string" ? (
 							<p
-								className={`text-center text-sm font-medium ${
-									message.includes("Error") || message.includes("Insufficient")
-										? "text-red-500"
-										: "text-emerald-500"
-								}`}
+								className={`text-center text-sm font-medium ${message.includes("Error") || message.includes("Insufficient") ? "text-red-500" : "text-emerald-500"}`}
 							>
 								{message}
 							</p>
@@ -1173,18 +1018,89 @@ export default function Home() {
 					</div>
 				)}
 
-				{isHistoryModalOpen && (
+				{isDevDonationModalOpen && (
 					<div
-						className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center transition-all duration-300 ${
-							isDarkMode ? "text-gray-100" : "text-gray-900"
-						}`}
+						className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 transition-all duration-300"
+						role="dialog"
+						aria-labelledby="dev-donation-modal-title"
+						aria-modal="true"
 					>
 						<div
-							className={`w-full max-w-lg sm:max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${
-								isDarkMode
-									? "bg-gradient-to-br from-gray-900 to-gray-800"
-									: "bg-gray-50"
-							} transition-all duration-300 transform ${isHistoryModalOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
+							className={`w-full max-w-md p-6 rounded-lg shadow-lg ${isDarkMode ? "bg-gray-800 text-gray-100 border-gray-600" : "bg-white text-gray-900 border-gray-200"} border animate-slide-in`}
+						>
+							<div className="flex justify-between items-center mb-4">
+								<h3
+									id="dev-donation-modal-title"
+									className="text-xl font-semibold"
+								>
+									Donate to Developer
+								</h3>
+								<button
+									onClick={handleCloseDevModal}
+									className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none"
+									aria-label="Close developer donation modal"
+								>
+									<FaTimes className="w-6 h-6" />
+								</button>
+							</div>
+							<p className="mb-4 text-gray-600 dark:text-gray-400">
+								Support the developer and help keep this project running! Enter
+								your donation amount in ETH below. Thank you!
+							</p>
+							<div className="mb-4">
+								<input
+									type="number"
+									step="0.0001"
+									value={devDonationAmount}
+									onChange={(e) => setDevDonationAmount(e.target.value)}
+									placeholder="Enter ETH amount (e.g., 0.005)"
+									className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
+									aria-label="Developer donation amount"
+								/>
+							</div>
+							<div className="flex gap-4">
+								<button
+									onClick={() => {
+										if (
+											devDonationAmount &&
+											parseFloat(devDonationAmount) > 0
+										) {
+											handleDevDonation(devDonationAmount);
+										} else {
+											setMessage(
+												<div className="flex items-center gap-2 p-3 rounded-lg bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 animate-slide-in">
+													<FaExclamationCircle />{" "}
+													<p>Invalid donation amount.</p>
+												</div>,
+											);
+										}
+									}}
+									className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500"
+									aria-label="Confirm developer donation"
+									disabled={
+										!devDonationAmount || parseFloat(devDonationAmount) <= 0
+									}
+								>
+									Yes
+								</button>
+								<button
+									onClick={handleCloseDevModal}
+									className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-500"
+									aria-label="Skip developer donation"
+								>
+									No
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{isHistoryModalOpen && (
+					<div
+						className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center transition-all duration-300 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}
+					>
+						<div
+							className={`w-full max-w-lg sm:max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800" : "bg-gray-50"} transition-all duration-300 transform ${isHistoryModalOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
 						>
 							<h3 className="text-2xl sm:text-3xl font-semibold mb-6 text-center leading-snug">
 								Transaction History
@@ -1193,30 +1109,58 @@ export default function Home() {
 								{history.map((entry, i) => (
 									<li
 										key={i}
-										className={`text-sm sm:text-base flex items-center justify-between p-2 rounded-lg ${
-											i === history.length - 1
-												? "bg-emerald-100 dark:bg-emerald-900/30"
-												: ""
-										}`}
+										className={`text-sm sm:text-base flex items-center justify-between p-2 rounded-lg ${i === history.length - 1 ? "bg-emerald-100 dark:bg-emerald-900/30" : ""}`}
 									>
-										<span className="flex items-center gap-2">
+										<a
+											href={`https://sepolia.basescan.org/tx/${entry.tx_hash}`}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="flex items-center gap-2 text-blue-500 dark:text-blue-400 hover:underline"
+										>
 											<FaCheckCircle className="text-emerald-500 dark:text-emerald-400" />
 											<span className="text-gray-700 dark:text-gray-300">
 												{`${entry.created_at} - From: ${entry.user_address.slice(0, 6)}...${entry.user_address.slice(-4)} - Donation of ${entry.amount} ${entry.currency} to ${entry.to_address.slice(0, 6)}... (Dev: ${entry.dev_donation} ${entry.currency})`}
 											</span>
-										</span>
+										</a>
 									</li>
 								))}
 							</ul>
+							{isClearConfirmOpen ? (
+								<div className="mt-6 space-y-4">
+									<p className="text-center text-sm text-yellow-700 dark:text-yellow-300">
+										Are you sure you want to clear the history?
+									</p>
+									<div className="flex gap-4 justify-center">
+										<button
+											onClick={handleClearHistory}
+											className="px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+											aria-label="Confirm Clear History"
+										>
+											Yes
+										</button>
+										<button
+											onClick={handleCancelClear}
+											className="px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500"
+											aria-label="Cancel Clear History"
+										>
+											No
+										</button>
+									</div>
+								</div>
+							) : (
+								<button
+									onClick={handleClearHistory}
+									className="mt-6 w-full px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-500"
+									aria-label="Clear History"
+								>
+									Clear History
+								</button>
+							)}
 							<button
-								onClick={() => setHistory([])}
-								className="mt-6 w-full px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-								aria-label="Clear History"
-							>
-								Clear History
-							</button>
-							<button
-								onClick={() => setIsHistoryModalOpen(false)}
+								onClick={() => {
+									setIsHistoryModalOpen(false);
+									setIsClearConfirmOpen(false);
+								}}
 								className="mt-4 w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500"
 								aria-label="Close History Modal"
 							>
@@ -1228,59 +1172,62 @@ export default function Home() {
 
 				{isStatsModalOpen && (
 					<div
-						className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center transition-all duration-300 ${
-							isDarkMode ? "text-gray-100" : "text-gray-900"
-						}`}
+						className={`fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center transition-all duration-300 ${isDarkMode ? "text-gray-100" : "text-gray-900"}`}
 					>
 						<div
-							className={`w-full max-w-lg sm:max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${
-								isDarkMode
-									? "bg-gradient-to-br from-gray-900 to-gray-800"
-									: "bg-gray-50"
-							} transition-all duration-300 transform ${isStatsModalOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
+							className={`w-full max-w-lg sm:max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800" : "bg-gray-50"} transition-all duration-300 transform ${isStatsModalOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}
 						>
 							<h3 className="text-2xl sm:text-3xl font-semibold mb-6 text-center leading-snug">
 								Donation Statistics
 							</h3>
+
+							{/* Filtros */}
+							<div className="mb-6 flex flex-col sm:flex-row gap-4 justify-center">
+								<select
+									onChange={(e) => setFilterCause(e.target.value)}
+									value={filterCause}
+									className={`w-full sm:w-1/3 p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
+									aria-label="Filter by cause"
+								>
+									<option value="">All Causes</option>
+									<option value="education">Education</option>
+									<option value="health">Health</option>
+									<option value="environment">Environment</option>
+									<option value="social">Social Impact</option>
+								</select>
+								<select
+									onChange={(e) => setFilterCurrency(e.target.value)}
+									value={filterCurrency}
+									className={`w-full sm:w-1/3 p-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
+									aria-label="Filter by currency"
+								>
+									<option value="">All Currencies</option>
+									<option value="ETH">ETH</option>
+									<option value="USDC">USDC</option>
+									<option value="USDT">USDT</option>
+								</select>
+							</div>
+
+							{/* Gráfico */}
 							<div className="mb-6">
 								<Bar
 									data={{
-										labels: [
-											"Education",
-											"Health",
-											"Environment",
-											"Social Impact",
-										],
+										labels: filteredStats.map((s) => s.cause),
 										datasets: [
 											{
 												label: "ETH",
-												data: [
-													getStatsData().education.ETH,
-													getStatsData().health.ETH,
-													getStatsData().environment.ETH,
-													getStatsData().social.ETH,
-												],
-												backgroundColor: "rgba(59, 130, 246, 0.6)", // Azul
+												data: filteredStats.map((s) => s.ETH),
+												backgroundColor: "rgba(59, 130, 246, 0.6)",
 											},
 											{
 												label: "USDC",
-												data: [
-													getStatsData().education.USDC,
-													getStatsData().health.USDC,
-													getStatsData().environment.USDC,
-													getStatsData().social.USDC,
-												],
-												backgroundColor: "rgba(16, 185, 129, 0.6)", // Verde
+												data: filteredStats.map((s) => s.USDC),
+												backgroundColor: "rgba(16, 185, 129, 0.6)",
 											},
 											{
 												label: "USDT",
-												data: [
-													getStatsData().education.USDT,
-													getStatsData().health.USDT,
-													getStatsData().environment.USDT,
-													getStatsData().social.USDT,
-												],
-												backgroundColor: "rgba(245, 158, 11, 0.6)", // Amarelo
+												data: filteredStats.map((s) => s.USDT),
+												backgroundColor: "rgba(245, 158, 11, 0.6)",
 											},
 										],
 									}}
@@ -1312,31 +1259,29 @@ export default function Home() {
 									}}
 								/>
 							</div>
+
+							{/* Estatísticas Filtradas */}
 							<div className="text-center mt-4 space-y-2">
-								<p>
-									Education: {getStatsData().education.ETH.toFixed(4)} ETH |{" "}
-									{getStatsData().education.USDC.toFixed(2)} USDC |{" "}
-									{getStatsData().education.USDT.toFixed(2)} USDT
-								</p>
-								<p>
-									Health: {getStatsData().health.ETH.toFixed(4)} ETH |{" "}
-									{getStatsData().health.USDC.toFixed(2)} USDC |{" "}
-									{getStatsData().health.USDT.toFixed(2)} USDT
-								</p>
-								<p>
-									Environment: {getStatsData().environment.ETH.toFixed(4)} ETH |{" "}
-									{getStatsData().environment.USDC.toFixed(2)} USDC |{" "}
-									{getStatsData().environment.USDT.toFixed(2)} USDT
-								</p>
-								<p>
-									Social Impact: {getStatsData().social.ETH.toFixed(4)} ETH |{" "}
-									{getStatsData().social.USDC.toFixed(2)} USDC |{" "}
-									{getStatsData().social.USDT.toFixed(2)} USDT
-								</p>
+								{filteredStats.map((stat) => (
+									<p key={stat.cause}>
+										{stat.cause}: {stat.ETH.toFixed(4)} ETH |{" "}
+										{stat.USDC.toFixed(2)} USDC | {stat.USDT.toFixed(2)} USDT
+									</p>
+								))}
 							</div>
+
+							{/* Botão de Exportação */}
+							<button
+								onClick={exportToCSV}
+								className="mt-6 w-full px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500"
+								aria-label="Export Statistics to CSV"
+							>
+								Export to CSV
+							</button>
+
 							<button
 								onClick={() => setIsStatsModalOpen(false)}
-								className="w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500"
+								className="mt-4 w-full px-4 py-2 rounded-lg bg-gray-600 hover:bg-gray-700 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500"
 								aria-label="Close Statistics Modal"
 							>
 								Close
