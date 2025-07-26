@@ -1,73 +1,109 @@
 import { NextResponse } from "next/server";
 import { parseEther, isAddress } from "viem";
-import { supabase } from "../../../lib/supabase";
+import { supabaseServer } from "../../../lib/supabase-server";
 
 export async function POST(request: Request) {
 	try {
 		const { command, signerData, donateToDev, txHash } = await request.json();
 
-		// Validar o comando
+		// Map predefined causes to wallet addresses
+		const causeAddressMap: Record<string, `0x${string}`> = {
+			education: "0xCaE3E92B39a1965A4B988bE34470Fdc1f49279e6",
+			health: "0x02dE0627054cC5c59821B4Ea2cCE448f64284290",
+			environment: "0x40Af88bA3D3554e0cCb9Ca3EDc72EbEe4e4C7ae5",
+			social: "0x41Ad38D867049a180231038E38890e2c5F1EECbA",
+			developer: "0xf2D3CeF68400248C9876f5A281291c7c4603D100",
+		};
+
+		// Validate command format
 		const match = command.match(
-			/doar (\d+\.?\d*)\s*(?:ETH)?\s*(?:para|pra)\s*(0x[a-fA-F0-9]{40})/i,
+			/Donate\s+(\d+\.?\d*)\s+(ETH|USDC|USDT)\s+to\s+(.+)/i,
 		);
 		if (!match) {
 			return NextResponse.json(
 				{
 					error:
-						"Comando inválido. Use: doar <valor> [ETH] para/pra <endereço>",
+						"Invalid command format. Use: Donate [amount] [ETH|USDC|USDT] to [cause/address].",
 				},
 				{ status: 400 },
 			);
 		}
 
-		const amount = match[1];
-		const toAddress = match[2];
+		const [, amount, currency, target] = match;
+		const normalizedCurrency = currency.toUpperCase();
+		const normalizedTarget = target.toLowerCase();
 
-		// Validar endereços
-		if (!isAddress(toAddress) || !isAddress(signerData.address)) {
-			return NextResponse.json({ error: "Endereço inválido" }, { status: 400 });
+		// Validate currency
+		if (!["ETH", "USDC", "USDT"].includes(normalizedCurrency)) {
+			return NextResponse.json(
+				{ error: "Unsupported currency. Use ETH, USDC, or USDT." },
+				{ status: 400 },
+			);
 		}
 
-		// Validar valor
+		// Determine address and cause
+		let toAddress: `0x${string}`;
+		let cause: string;
+		if (isAddress(target)) {
+			toAddress = target as `0x${string}`;
+			cause = donateToDev ? "developer" : "custom";
+		} else if (causeAddressMap[normalizedTarget]) {
+			toAddress = causeAddressMap[normalizedTarget];
+			cause = normalizedTarget;
+		} else {
+			return NextResponse.json(
+				{ error: "Invalid cause or address format." },
+				{ status: 400 },
+			);
+		}
+
+		// Validate addresses
+		if (!isAddress(toAddress) || !isAddress(signerData.address)) {
+			return NextResponse.json({ error: "Invalid address." }, { status: 400 });
+		}
+
+		// Validate amount
 		const amountFloat = parseFloat(amount);
 		if (isNaN(amountFloat) || amountFloat <= 0) {
-			return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
+			return NextResponse.json({ error: "Invalid amount." }, { status: 400 });
 		}
 
-		// Converter o valor para Wei
-		const amountInWei = parseEther(amount).toString();
+		// Convert amount to Wei (only for ETH)
+		const amountInWei =
+			normalizedCurrency === "ETH" ? parseEther(amount).toString() : undefined;
 
-		// Salvar a doação no Supabase
+		// Save donation to Supabase
+		const supabase = supabaseServer(); // Agora é síncrono
 		const { error } = await supabase.from("donations").insert({
 			user_address: signerData.address,
 			amount: amountFloat,
-			currency: "ETH",
+			currency: normalizedCurrency,
 			to_address: toAddress,
-			cause: "custom",
-			dev_donation: donateToDev ? amountFloat * 0.1 : 0,
+			cause,
+			dev_donation: donateToDev ? amountFloat : 0,
 			tx_hash: txHash,
+			created_at: new Date().toISOString(),
 		});
 
 		if (error) {
 			return NextResponse.json(
-				{ error: `Erro ao salvar doação: ${error.message}` },
+				{ error: `Error saving donation: ${error.message}` },
 				{ status: 500 },
 			);
 		}
 
-		// Retornar os dados para o cliente processar a transação
+		// Return data for client to process transaction
 		return NextResponse.json(
 			{
 				toAddress,
 				amountInWei,
-				currency: "ETH",
+				currency: normalizedCurrency,
 			},
 			{ status: 200 },
 		);
 	} catch (error) {
-		return NextResponse.json(
-			{ error: (error as Error).message },
-			{ status: 500 },
-		);
+		const errorMessage =
+			error instanceof Error ? error.message : "Unknown error";
+		return NextResponse.json({ error: errorMessage }, { status: 500 });
 	}
 }

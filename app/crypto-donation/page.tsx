@@ -6,7 +6,7 @@ import {
 	useAccount,
 	useSendTransaction,
 	useDisconnect,
-	useContractWrite,
+	useWriteContract,
 	useBalance,
 	useConnect,
 } from "wagmi";
@@ -20,8 +20,7 @@ import {
 	FaTimes,
 } from "react-icons/fa";
 import { RiLoader4Line } from "react-icons/ri";
-import DonationModal from "../../components/DonationModal";
-import { Bar } from "react-chartjs-2"; // Adicionado o import do componente Bar
+import { Bar } from "react-chartjs-2";
 import {
 	Chart as ChartJS,
 	CategoryScale,
@@ -31,10 +30,10 @@ import {
 	Tooltip,
 	Legend,
 } from "chart.js";
-import { supabase } from "../../lib/supabase";
+import { createSupabaseClient } from "../../lib/supabase-client";
 import Image from "next/image";
 
-// Registrar componentes do Chart.js
+// Register Chart.js components
 ChartJS.register(
 	CategoryScale,
 	LinearScale,
@@ -44,7 +43,7 @@ ChartJS.register(
 	Legend,
 );
 
-// Define o erc20ABI manualmente
+// Define ERC20 ABI
 const erc20ABI = [
 	{
 		constant: false,
@@ -72,7 +71,7 @@ const erc20ABI = [
 	},
 ];
 
-// Interface para doações
+// Interface for donations
 interface Donation {
 	user_address: string;
 	amount: string;
@@ -84,13 +83,54 @@ interface Donation {
 	created_at: string;
 }
 
-// Função para validar endereços Ethereum
-const validateAddress = (addr: string): string => {
+// Interface for stats entry
+interface StatsEntry {
+	cause: string;
+	ETH: number;
+	USDC: number;
+	USDT: number;
+}
+
+// Define cause types
+type Cause = keyof typeof causeNameMap;
+
+// Validate Ethereum addresses
+const validateAddress = (addr: string): `0x${string}` => {
 	if (!isAddress(addr)) {
 		throw new Error(`Invalid address: ${addr}`);
 	}
-	return addr;
+	return addr as `0x${string}`;
 };
+
+// Define causeNameMap outside the component
+const causeNameMap = {
+	education: "Education",
+	health: "Health",
+	environment: "Environment",
+	social: "Social Impact",
+} as const;
+
+// Define causeAddressMap outside the component
+const causeAddressMap = {
+	education: "0xCaE3E92B39a1965A4B988bE34470Fdc1f49279e6",
+	health: "0x02dE0627054cC5c59821B4Ea2cCE448f64284290",
+	environment: "0x40Af88bA3D3554e0cCb9Ca3EDc72EbEe4e4C7ae5",
+	social: "0x41Ad38D867049a180231038E38890e2c5F1EECbA",
+} as const;
+
+// Define API response type
+interface ApiSuccessResponse {
+	value: string;
+	toAddress: `0x${string}`;
+	currency: string;
+	amountInWei?: string;
+}
+
+interface ApiErrorResponse {
+	error: string;
+}
+
+type ApiResponse = ApiSuccessResponse | ApiErrorResponse | null;
 
 export default function Home() {
 	const { setFrameReady, isFrameReady } = useMiniKit();
@@ -99,18 +139,7 @@ export default function Home() {
 	const { connect, connectors, isPending: isConnecting } = useConnect();
 	const { sendTransactionAsync } = useSendTransaction();
 	const { disconnect } = useDisconnect();
-	const { writeAsync: transferTokenAsync } = useContractWrite({
-		address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // Contrato USDC na Base Sepolia
-		abi: erc20ABI,
-		functionName: "transfer",
-	});
-	const { writeAsync: transferUsdtAsync } = useContractWrite({
-		address: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2", // Contrato USDT na Base Sepolia
-		abi: erc20ABI,
-		functionName: "transfer",
-	});
-
-	// Verificação de saldo
+	const { writeContractAsync: transferTokenAsync } = useWriteContract();
 	const { data: ethBalance, isLoading: isEthBalanceLoading } = useBalance({
 		address,
 	});
@@ -123,23 +152,9 @@ export default function Home() {
 		token: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
 	});
 
-	const causeAddressMap = {
-		education: "0xCaE3E92B39a1965A4B988bE34470Fdc1f49279e6",
-		health: "0x02dE0627054cC5c59821B4Ea2cCE448f64284290",
-		environment: "0x40Af88bA3D3554e0cCb9Ca3EDc72EbEe4e4C7ae5",
-		social: "0x41Ad38D867049a180231038E38890e2c5F1EECbA",
-	};
-
-	const causeNameMap = {
-		education: "Education",
-		health: "Health",
-		environment: "Environment",
-		social: "Social Impact",
-	};
-
 	const [amount, setAmount] = useState("");
 	const [currency, setCurrency] = useState("ETH");
-	const [cause, setCause] = useState("education");
+	const [cause, setCause] = useState<Cause>("education");
 	const [customCommand, setCustomCommand] = useState("");
 	const [isCustomMode, setIsCustomMode] = useState(false);
 	const [message, setMessage] = useState<JSX.Element | string>("");
@@ -148,73 +163,76 @@ export default function Home() {
 	const [history, setHistory] = useState<Donation[]>([]);
 	const [transactionStatus, setTransactionStatus] = useState("");
 	const [isCommandValid, setIsCommandValid] = useState<boolean>(false);
-	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
 	const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
 	const [lastDonation, setLastDonation] = useState<{
 		value: string;
 		currency: string;
-		toAddress: string;
+		toAddress: `0x${string}`;
 		cause: string;
 	} | null>(null);
-	const [resolveModal, setResolveModal] = useState<
-		((value: boolean | string) => void) | null
-	>(null);
 	const [isWalletMenuOpen, setIsWalletMenuOpen] = useState(false);
 	const [connectingConnectorId, setConnectingConnectorId] = useState<
 		string | null
 	>(null);
-	const [page] = useState(1); // Removido setPage
-	const pageSize = 10; // Tamanho da página
+	const [page] = useState(1); // Removed setPage
+	const pageSize = 10; // Page size
 	const [isDevDonationModalOpen, setIsDevDonationModalOpen] = useState(false);
 	const [devDonationAmount, setDevDonationAmount] = useState("");
 	const [isClearConfirmOpen, setIsClearConfirmOpen] = useState(false);
 
-	// Novos estados para filtros
+	// Filter states
 	const [filterCause, setFilterCause] = useState("");
 	const [filterCurrency, setFilterCurrency] = useState("");
 
-	// Filtrar e ordenar conectores
+	// Filter and sort connectors
 	const uniqueConnectors = useMemo(() => {
 		const seenNames = new Set<string>();
-		const prioritizedConnectors = connectors.reduce(
+		const result = connectors.reduce(
 			(acc, connector) => {
 				const connectorName = connector.name.toLowerCase();
 				if (connectorName.includes("metamask")) {
 					if (!seenNames.has("metamask")) {
 						seenNames.add("metamask");
-						acc.push({ ...connector, name: "MetaMask" });
+						return [...acc, { ...connector, name: "MetaMask" }];
 					}
 				} else if (!seenNames.has(connectorName)) {
 					seenNames.add(connectorName);
-					acc.push(connector);
+					return [...acc, connector];
 				}
 				return acc;
 			},
 			[] as typeof connectors,
 		);
-		return prioritizedConnectors.sort((a, b) => a.name.localeCompare(b.name));
+		return [...result].sort((a, b) => a.name.localeCompare(b.name));
 	}, [connectors]);
 
-	// Função para conectar carteira
-	const handleConnectWallet = async (connector: (typeof connectors)[0]) => {
-		setIsLoading(true);
-		setConnectingConnectorId(connector.id);
-		try {
-			await connect({ connector });
-			setIsWalletMenuOpen(false);
-		} catch (error) {
-			console.error("Connection error:", (error as Error).message);
-		} finally {
-			setIsLoading(false);
-			setConnectingConnectorId(null);
-		}
-	};
+	// Connect wallet function
+	const handleConnectWallet = useCallback(
+		async (connector: (typeof connectors)[0]) => {
+			setIsLoading(true);
+			setConnectingConnectorId(connector.id);
+			try {
+				await connect({ connector });
+				setIsWalletMenuOpen(false);
+			} catch (err) {
+				console.error(
+					"Connection error:",
+					err instanceof Error ? err.message : "Unknown error",
+				);
+			} finally {
+				setIsLoading(false);
+				setConnectingConnectorId(null);
+			}
+		},
+		[connect, setIsLoading, setIsWalletMenuOpen],
+	);
 
-	// Cache local e paginação
+	// Local cache and pagination
 	useEffect(() => {
 		async function fetchDonations() {
 			if (!address) return;
+			const supabase = createSupabaseClient();
 			const { data, error } = await supabase
 				.from("donations")
 				.select("*")
@@ -222,7 +240,7 @@ export default function Home() {
 				.range((page - 1) * pageSize, page * pageSize - 1)
 				.order("created_at", { ascending: false });
 			if (error) {
-				console.error("Erro ao buscar doações:", error.message);
+				console.error("Error fetching donations:", error.message);
 				return;
 			}
 			setHistory((prev) =>
@@ -232,77 +250,74 @@ export default function Home() {
 		fetchDonations();
 	}, [address, page]);
 
-	// Placeholder dinâmico
+	// Dynamic placeholder
 	const amountPlaceholder = useMemo(() => {
 		return currency === "ETH" ? "0.001" : currency === "USDC" ? "10" : "10";
 	}, [currency]);
 
-	// Função para processar estatísticas
-	const getStatsData = () => {
-		type CauseKey = keyof typeof causeAddressMap;
-		const stats: Record<CauseKey, { ETH: number; USDC: number; USDT: number }> =
-			{
+	// Filter statistics
+	const filteredStats = useMemo(() => {
+		const getStatsData = () => {
+			type CauseKey = keyof typeof causeAddressMap;
+			const stats: Record<
+				CauseKey,
+				{ ETH: number; USDC: number; USDT: number }
+			> = {
 				education: { ETH: 0, USDC: 0, USDT: 0 },
 				health: { ETH: 0, USDC: 0, USDT: 0 },
 				environment: { ETH: 0, USDC: 0, USDT: 0 },
 				social: { ETH: 0, USDC: 0, USDT: 0 },
 			};
 
-		history.forEach((entry) => {
-			const causeKey = (Object.keys(causeAddressMap) as CauseKey[]).find(
-				(key) =>
-					causeAddressMap[key].toLowerCase() === entry.to_address.toLowerCase(),
-			) as CauseKey | undefined;
-			if (
-				causeKey &&
-				stats[causeKey] &&
-				["ETH", "USDC", "USDT"].includes(entry.currency)
-			) {
-				stats[causeKey][entry.currency as keyof (typeof stats)[CauseKey]] +=
-					parseFloat(entry.amount);
-			}
-		});
+			history.forEach((entry) => {
+				const causeKey = (Object.keys(causeAddressMap) as CauseKey[]).find(
+					(key) =>
+						causeAddressMap[key].toLowerCase() ===
+						entry.to_address.toLowerCase(),
+				) as CauseKey | undefined;
+				if (
+					causeKey &&
+					stats[causeKey] &&
+					["ETH", "USDC", "USDT"].includes(entry.currency)
+				) {
+					stats[causeKey][entry.currency as keyof (typeof stats)[CauseKey]] +=
+						parseFloat(entry.amount);
+				}
+			});
 
-		return stats;
-	};
+			return stats;
+		};
 
-	// Função para filtrar estatísticas
-	const filteredStats = useMemo(() => {
 		const stats = getStatsData();
-		const filtered: {
-			cause: string;
-			ETH: number;
-			USDC: number;
-			USDT: number;
-		}[] = [];
+		const filtered: StatsEntry[] = [];
 
 		const causes = filterCause
-			? [filterCause]
+			? [filterCause as Cause]
 			: ["education", "health", "environment", "social"];
 		const currencies = filterCurrency
 			? [filterCurrency]
 			: ["ETH", "USDC", "USDT"];
 
 		causes.forEach((cause) => {
-			const entry = {
-				cause: causeNameMap[cause as keyof typeof causeNameMap],
-				ETH: 0,
-				USDC: 0,
-				USDT: 0,
+			const entry: StatsEntry = {
+				cause: causeNameMap[cause as Cause],
+				ETH: currencies.includes("ETH")
+					? stats[cause as keyof typeof stats].ETH
+					: 0,
+				USDC: currencies.includes("USDC")
+					? stats[cause as keyof typeof stats].USDC
+					: 0,
+				USDT: currencies.includes("USDT")
+					? stats[cause as keyof typeof stats].USDT
+					: 0,
 			};
-			currencies.forEach((currency) => {
-				entry[currency as keyof typeof entry] =
-					stats[cause as keyof typeof stats][
-						currency as keyof (typeof stats)[keyof typeof stats]
-					];
-			});
 			filtered.push(entry);
 		});
 
 		return filtered;
-	}, [filterCause, filterCurrency, history, causeNameMap]);
+	}, [filterCause, filterCurrency, history]);
 
-	// Função para exportar para CSV
+	// Export to CSV
 	const exportToCSV = () => {
 		const csv = [
 			["Cause", "ETH", "USDC", "USDT"].join(","),
@@ -324,7 +339,7 @@ export default function Home() {
 		window.URL.revokeObjectURL(url);
 	};
 
-	// Configuração do frame Minikit
+	// Configure Minikit frame
 	useEffect(() => {
 		if (!isFrameReady) {
 			setFrameReady();
@@ -332,7 +347,7 @@ export default function Home() {
 		}
 	}, [isFrameReady, setFrameReady]);
 
-	// Validação de comando customizado
+	// Validate custom command
 	useEffect(() => {
 		if (isCustomMode) {
 			const isValid = customCommand.match(
@@ -346,7 +361,7 @@ export default function Home() {
 		}
 	}, [amount, currency, cause, customCommand, isCustomMode]);
 
-	// Manipulador de eventos de teclado para seleção de carteira
+	// Handle keyboard events for wallet selection
 	const handleKeyPress = useCallback(
 		(event: KeyboardEvent) => {
 			if (!isWalletMenuOpen) return;
@@ -375,7 +390,9 @@ export default function Home() {
 
 	const notifyOnWarpcast = () => {
 		if (!lastDonation) return;
-		const causeName = isCustomMode ? "Custom Cause" : causeNameMap[cause];
+		const causeName = isCustomMode
+			? "Custom Cause"
+			: causeNameMap[cause as Cause];
 		const shareText = encodeURIComponent(
 			`I just donated ${lastDonation.value} ${lastDonation.currency} to the ${causeName} cause using Onchain Donation! 🎉 Check it out at https://donation-agent.vercel.app`,
 		);
@@ -415,22 +432,19 @@ export default function Home() {
 		setIsLoading(true);
 		setTransactionStatus("Pending");
 
-		let data: {
-			value: string;
-			toAddress: string;
-			currency: string;
-			amountInWei?: string;
-		} | null = null;
+		let data: ApiResponse = null;
 
 		try {
 			if (!isCustomMode) {
 				data = {
 					value: amount,
-					toAddress: causeAddressMap[cause],
+					toAddress: validateAddress(causeAddressMap[cause]),
 					currency: currency.toUpperCase(),
 				};
 				if (data.currency === "ETH") {
-					data.amountInWei = parseEther(data.value).toString();
+					(data as ApiSuccessResponse).amountInWei = parseEther(
+						data.value,
+					).toString();
 				}
 			} else {
 				const command = customCommand;
@@ -452,13 +466,20 @@ export default function Home() {
 
 				data = await response.json();
 
-				if (data.error) {
-					throw new Error(data.error);
+				if (data === null || "error" in data) {
+					throw new Error(
+						(data as ApiErrorResponse)?.error || "Invalid API response data",
+					);
 				}
 			}
 
-			if (data && data.toAddress && data.value && data.currency) {
-				validateAddress(data.toAddress);
+			if (
+				data &&
+				"value" in data &&
+				"toAddress" in data &&
+				"currency" in data
+			) {
+				const validatedToAddress = validateAddress(data.toAddress);
 
 				const amountToCheck = parseFloat(data.value);
 				if (isNaN(amountToCheck) || amountToCheck <= 0) {
@@ -481,13 +502,14 @@ export default function Home() {
 					);
 				}
 
-				// Transação principal
+				// Main transaction
 				let txHash: string;
 				if (data.currency === "ETH") {
 					const tx = await sendTransactionAsync({
-						to: data.toAddress,
+						to: validatedToAddress,
 						value: BigInt(
-							data.amountInWei || parseEther(data.value).toString(),
+							(data as ApiSuccessResponse).amountInWei ||
+								parseEther(data.value).toString(),
 						),
 					});
 					txHash = tx;
@@ -496,20 +518,28 @@ export default function Home() {
 						(parseFloat(data.value) * 1e6).toString(),
 					);
 					const tx = await transferTokenAsync({
-						args: [data.toAddress, BigInt(amountInUnits)],
+						address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const,
+						abi: erc20ABI,
+						functionName: "transfer",
+						args: [validatedToAddress, BigInt(amountInUnits)],
 					});
 					txHash = tx;
 				} else if (data.currency === "USDT") {
 					const amountInUnits = parseInt(
 						(parseFloat(data.value) * 1e6).toString(),
 					);
-					const tx = await transferUsdtAsync({
-						args: [data.toAddress, BigInt(amountInUnits)],
+					const tx = await transferTokenAsync({
+						address: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" as const,
+						abi: erc20ABI,
+						functionName: "transfer",
+						args: [validatedToAddress, BigInt(amountInUnits)],
 					});
 					txHash = tx;
+				} else {
+					throw new Error(`Unsupported currency: ${data.currency}`);
 				}
 
-				// Registro da transação principal
+				// Record main transaction
 				await fetch("/api/donate", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -533,7 +563,7 @@ export default function Home() {
 					user_address: address!,
 					amount: data.value,
 					currency: data.currency,
-					to_address: data.toAddress,
+					to_address: validatedToAddress,
 					cause,
 					dev_donation: 0,
 					tx_hash: txHash,
@@ -541,12 +571,16 @@ export default function Home() {
 				};
 				setHistory((prev) => [...prev, historyEntry]);
 
-				// Abrir modal de doação ao desenvolvedor se a transação for em ETH
+				// Open developer donation modal if the transaction is in ETH
 				if (data.currency === "ETH") {
 					setIsDevDonationModalOpen(true);
 				}
 
-				setLastDonation({ ...data, cause });
+				setLastDonation({
+					...(data as ApiSuccessResponse),
+					toAddress: validatedToAddress,
+					cause,
+				});
 				setMessage(
 					<div className="flex flex-col gap-2 p-3 rounded-lg bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 animate-slide-in">
 						<span className="flex items-center gap-2">
@@ -699,6 +733,7 @@ export default function Home() {
 						: "bg-black bg-opacity-50"
 				}`}
 			></div>
+			{/* eslint-disable react/no-unescaped-entities */}
 			<style jsx global>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
@@ -811,9 +846,9 @@ export default function Home() {
 																alt={`${connector.name} icon`}
 																width={24}
 																height={24}
-																onError={(e) =>
-																	(e.currentTarget.src = "/img/wallet.png")
-																}
+																onError={(e) => {
+																	e.currentTarget.src = "/img/wallet.png";
+																}}
 															/>
 														)}
 														<span>{`${index + 1}. ${connector.name}`}</span>
@@ -982,7 +1017,7 @@ export default function Home() {
 								<div className="w-full sm:w-1/3">
 									<select
 										value={cause}
-										onChange={(e) => setCause(e.target.value)}
+										onChange={(e) => setCause(e.target.value as Cause)}
 										className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 text-sm sm:text-base transition-all duration-300 ${
 											isDarkMode
 												? "bg-gray-900/80 border-gray-600 text-gray-100"
@@ -1322,7 +1357,7 @@ export default function Home() {
 								Donation Statistics
 							</h3>
 
-							{/* Filtros */}
+							{/* Filters */}
 							<div className="mb-6 flex flex-col sm:flex-row gap-4 justify-center">
 								<select
 									onChange={(e) => setFilterCause(e.target.value)}
@@ -1357,7 +1392,7 @@ export default function Home() {
 								</select>
 							</div>
 
-							{/* Gráfico */}
+							{/* Chart */}
 							<div className="mb-6">
 								<Bar
 									data={{
@@ -1409,7 +1444,7 @@ export default function Home() {
 								/>
 							</div>
 
-							{/* Estatísticas Filtradas */}
+							{/* Filtered Statistics */}
 							<div className="text-center mt-4 space-y-2">
 								{filteredStats.map((stat) => (
 									<p key={stat.cause}>
@@ -1419,7 +1454,7 @@ export default function Home() {
 								))}
 							</div>
 
-							{/* Botão de Exportação */}
+							{/* Export Button */}
 							<button
 								onClick={exportToCSV}
 								className="mt-6 w-full px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -1438,18 +1473,6 @@ export default function Home() {
 						</div>
 					</div>
 				)}
-
-				<DonationModal
-					isOpen={isModalOpen}
-					onConfirm={(value) => {
-						setIsModalOpen(false);
-						if (resolveModal) {
-							resolveModal(value);
-							setResolveModal(null);
-						}
-					}}
-					isDarkMode={isDarkMode}
-				/>
 			</div>
 		</div>
 	);

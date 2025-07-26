@@ -6,20 +6,21 @@ import ClientProviders from "./ClientProviders";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Agente de Doações Onchain",
-  description: "Um agente autônomo para doações onchain usando o Coinbase Developer Platform AgentKit.",
+	title: "Agente de Doações Onchain",
+	description:
+		"Um agente autônomo para doações onchain usando o Coinbase Developer Platform AgentKit.",
 };
 
 export default function RootLayout({
-  children,
+	children,
 }: Readonly<{
-  children: React.ReactNode;
+	children: React.ReactNode;
 }>) {
-  return (
-    <html lang="en">
-      <body className={inter.className}>
-        <ClientProviders>{children}</ClientProviders>
-      </body>
-    </html>
-  );
+	return (
+		<html lang="en">
+			<body className={inter.className}>
+				<ClientProviders>{children}</ClientProviders>
+			</body>
+		</html>
+	);
 }
