@@ -1,3 +1,4 @@
+// app/components/DevDonationModal.tsx
 "use client";
 
 import { useCallback } from "react";
@@ -10,6 +11,7 @@ export default function DevDonationModal({
 	setDevDonationAmount,
 	setMessage,
 	onConfirm,
+	isDarkMode,
 }: {
 	isDevDonationModalOpen: boolean;
 	setIsDevDonationModalOpen: (value: boolean) => void;
@@ -17,6 +19,7 @@ export default function DevDonationModal({
 	setDevDonationAmount: (value: string) => void;
 	setMessage: (value: string | null) => void;
 	onConfirm: (amount: string) => Promise<void>;
+	isDarkMode: boolean;
 }) {
 	const handleConfirm = useCallback(async () => {
 		if (!devDonationAmount || parseFloat(devDonationAmount) <= 0) {
@@ -29,12 +32,14 @@ export default function DevDonationModal({
 	return (
 		isDevDonationModalOpen && (
 			<div
-				className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 transition-all duration-300"
+				className={`fixed inset-0 ${isDarkMode ? "bg-black bg-opacity-70" : "bg-gray-900 bg-opacity-50"} flex items-center justify-center z-50 transition-all duration-300`}
 				role="dialog"
 				aria-labelledby="dev-donation-modal-title"
 				aria-modal="true"
 			>
-				<div className="w-full max-w-md p-6 rounded-lg shadow-lg bg-gray-800 text-gray-100 border-gray-600 border animate-slide-in">
+				<div
+					className={`w-full max-w-md p-6 rounded-lg shadow-lg ${isDarkMode ? "bg-gray-800 text-gray-100 border-gray-600 border" : "bg-white text-gray-900 border-gray-200 border"} animate-slide-in`}
+				>
 					<div className="flex justify-between items-center mb-4">
 						<h3 id="dev-donation-modal-title" className="text-xl font-semibold">
 							Donate to Developer
@@ -61,7 +66,7 @@ export default function DevDonationModal({
 							value={devDonationAmount}
 							onChange={(e) => setDevDonationAmount(e.target.value)}
 							placeholder="Enter ETH amount (e.g., 0.005)"
-							className="w-full p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 bg-gray-900/80 border-gray-600 text-gray-100"
+							className={`w-full p-3 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 ${isDarkMode ? "bg-gray-900/80 border-gray-600 text-gray-100" : "bg-white/80 border-gray-200 text-gray-900"}`}
 							aria-label="Developer donation amount"
 						/>
 					</div>

@@ -1,21 +1,9 @@
+// lib/supabase-server.ts
 import { type CookieOptions, createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 // Tipo estrito para sameSite
 type StrictSameSite = "lax" | "strict" | "none";
-
-interface CookieAdapter {
-	get(name: string): { value: string } | undefined;
-	set(options: {
-		name: string;
-		value: string;
-		httpOnly?: boolean;
-		secure?: boolean;
-		path?: string;
-		sameSite?: StrictSameSite;
-		maxAge?: number;
-	}): void;
-}
 
 // Função auxiliar com tipagem explícita
 const normalizeSameSite = (
@@ -26,8 +14,8 @@ const normalizeSameSite = (
 	return value;
 };
 
-export const supabaseServer = () => {
-	const cookieStore = cookies() as unknown as CookieAdapter;
+export async function supabaseServer() {
+	const cookieStore = await cookies();
 
 	return createServerClient(
 		process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,4 +55,4 @@ export const supabaseServer = () => {
 			},
 		},
 	);
-};
+}

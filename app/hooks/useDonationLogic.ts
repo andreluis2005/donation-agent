@@ -1,3 +1,4 @@
+// app/hooks/useDonationLogic.ts
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
@@ -18,7 +19,14 @@ const causeAddressMap = {
 	environment: "0x40Af88bA3D3554e0cCb9Ca3EDc72EbEe4e4C7ae5",
 	social: "0x41Ad38D867049a180231038E38890e2c5F1EECbA",
 	developer: "0xf2D3CeF68400248C9876f5A281291c7c4603D100",
-};
+} as const;
+
+interface DonationData {
+	value: string;
+	toAddress: string;
+	currency: string;
+	amountInWei?: string;
+}
 
 export function useDonationLogic() {
 	const { setFrameReady, isFrameReady } = useMiniKit();
@@ -51,11 +59,12 @@ export function useDonationLogic() {
 		currency: string;
 		toAddress: `0x${string}`;
 		cause: string;
+		txHash?: string;
 	} | null>(null);
 	const [isDevDonationModalOpen, setIsDevDonationModalOpen] = useState(false);
 	const [devDonationAmount, setDevDonationAmount] = useState("");
 
-	const { setHistory } = useTransactionHistory(address);
+	const { refetchHistory } = useTransactionHistory(address);
 
 	useEffect(() => {
 		if (!isFrameReady) {
@@ -93,12 +102,7 @@ export function useDonationLogic() {
 		setIsLoading(true);
 		setTransactionStatus("Pending");
 
-		let data: {
-			value: string;
-			toAddress: string;
-			currency: string;
-			amountInWei?: string;
-		} | null = null;
+		let data: DonationData | null = null;
 
 		try {
 			if (!isCustomMode) {
@@ -138,47 +142,38 @@ export function useDonationLogic() {
 			) {
 				const validatedToAddress = isAddress(data.toAddress)
 					? (data.toAddress as `0x${string}`)
-					: (causeAddressMap[
-							cause as keyof typeof causeAddressMap
-						] as `0x${string}`);
-				if (!isAddress(validatedToAddress)) {
-					throw new Error("Invalid Ethereum address");
-				}
-
-				const amountToCheck = parseFloat(data.value);
-				if (isNaN(amountToCheck) || amountToCheck <= 0) {
-					throw new Error("Invalid donation amount");
-				}
-
-				const balance =
-					data.currency === "ETH"
-						? parseFloat(ethBalance?.formatted || "0")
-						: data.currency === "USDC"
-							? parseFloat(usdcBalance?.formatted || "0")
-							: parseFloat(usdtBalance?.formatted || "0");
-				if (balance < amountToCheck) {
-					throw new Error(
-						`Insufficient ${data.currency} balance. Available: ${balance.toFixed(
-							4,
-						)} ${data.currency}, Required: ${amountToCheck.toFixed(2)} ${
-							data.currency
-						}`,
-					);
-				}
+					: causeAddressMap[
+							Object.keys(causeAddressMap).find(
+								(key) =>
+									data &&
+									causeAddressMap[
+										key as keyof typeof causeAddressMap
+									].toLowerCase() === data.toAddress.toLowerCase(),
+							) as keyof typeof causeAddressMap
+						] || (data.toAddress as `0x${string}`);
 
 				let txHash: string;
 				if (data.currency === "ETH") {
+					const amountInWei = parseEther(data.value);
+					if (
+						parseFloat(ethBalance?.formatted || "0") < parseFloat(data.value)
+					) {
+						throw new Error("Insufficient ETH balance");
+					}
 					const tx = await sendTransactionAsync({
 						to: validatedToAddress,
-						value: BigInt(
-							data.amountInWei || parseEther(data.value).toString(),
-						),
+						value: amountInWei,
 					});
 					txHash = tx;
 				} else if (data.currency === "USDC") {
 					const amountInUnits = parseInt(
 						(parseFloat(data.value) * 1e6).toString(),
 					);
+					if (
+						parseFloat(usdcBalance?.formatted || "0") < parseFloat(data.value)
+					) {
+						throw new Error("Insufficient USDC balance");
+					}
 					const tx = await writeContractAsync({
 						address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const,
 						abi: erc20ABI,
@@ -190,6 +185,11 @@ export function useDonationLogic() {
 					const amountInUnits = parseInt(
 						(parseFloat(data.value) * 1e6).toString(),
 					);
+					if (
+						parseFloat(usdtBalance?.formatted || "0") < parseFloat(data.value)
+					) {
+						throw new Error("Insufficient USDT balance");
+					}
 					const tx = await writeContractAsync({
 						address: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" as const,
 						abi: erc20ABI,
@@ -198,10 +198,9 @@ export function useDonationLogic() {
 					});
 					txHash = tx;
 				} else {
-					throw new Error(`Unsupported currency: ${data.currency}`);
+					throw new Error(`Unsupported currency`);
 				}
 
-				// Envia no formato esperado pela API
 				const command = `donate ${data.value} ${data.currency} to ${
 					isCustomMode ? data.toAddress : cause
 				}`;
@@ -223,22 +222,12 @@ export function useDonationLogic() {
 					);
 				}
 
-				const donationData = {
-					user_address: address || "",
-					amount: data.value,
-					currency: data.currency,
-					to_address: validatedToAddress,
-					cause: isCustomMode ? "Custom Cause" : cause,
-					dev_donation: 0,
-					tx_hash: txHash,
-					created_at: new Date().toISOString(),
-				};
-
-				setHistory([donationData]);
+				await refetchHistory();
 				setLastDonation({
 					...data,
 					toAddress: validatedToAddress,
 					cause: isCustomMode ? "Custom Cause" : cause,
+					txHash,
 				});
 
 				if (data.currency === "ETH") {
@@ -258,7 +247,13 @@ export function useDonationLogic() {
 			const errorMessage =
 				error instanceof Error ? error.message : "Unknown error";
 			console.error("Transaction Error:", errorMessage);
-			setMessage(`Transaction Error: ${errorMessage}`);
+			setMessage(
+				`Transaction Error: ${
+					errorMessage.includes("Insufficient")
+						? "Insufficient balance"
+						: errorMessage
+				}`,
+			);
 			setTransactionStatus("Failed");
 		} finally {
 			setIsLoading(false);
@@ -279,7 +274,7 @@ export function useDonationLogic() {
 		usdtBalance?.formatted,
 		validateInput,
 		writeContractAsync,
-		setHistory,
+		refetchHistory,
 	]);
 
 	const handleDevDonation = useCallback(
@@ -302,17 +297,6 @@ export function useDonationLogic() {
 					value: devAmountInWei,
 				});
 
-				const donationData = {
-					user_address: address,
-					amount,
-					currency: "ETH",
-					to_address: devAddress,
-					cause: "Developer Donation",
-					dev_donation: parseFloat(amount),
-					tx_hash: txHash,
-					created_at: new Date().toISOString(),
-				};
-
 				await fetch("/api/donate", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -324,7 +308,14 @@ export function useDonationLogic() {
 					}),
 				});
 
-				setHistory([donationData]);
+				await refetchHistory();
+				setLastDonation({
+					value: amount,
+					currency: "ETH",
+					toAddress: devAddress,
+					cause: "developer",
+					txHash,
+				});
 				setMessage(`Developer donation sent successfully! Hash: ${txHash}`);
 			} catch (error) {
 				const errorMessage =
@@ -336,7 +327,7 @@ export function useDonationLogic() {
 				setIsLoading(false);
 			}
 		},
-		[address, ethBalance, sendTransactionAsync, setHistory, setMessage],
+		[address, ethBalance, sendTransactionAsync, refetchHistory],
 	);
 
 	const handleCloseDevModal = useCallback(() => {

@@ -1,7 +1,8 @@
+// app/components/DonationForm.tsx
 "use client";
 
-import { useEffect } from "react";
-import { FaCheckCircle } from "react-icons/fa";
+import { useEffect, useState } from "react";
+import { FaCheckCircle, FaRobot } from "react-icons/fa";
 
 interface DonationFormProps {
 	amount: string;
@@ -19,9 +20,7 @@ interface DonationFormProps {
 	handleSubmit: () => Promise<void>;
 	isLoading: boolean;
 	isEthBalanceLoading: boolean;
-	isUsdcBalanceLoading: boolean;
-	isUsdtBalanceLoading: boolean;
-	isDarkMode: boolean; // Adicionada prop para controle do tema
+	isDarkMode: boolean;
 }
 
 export default function DonationForm({
@@ -40,14 +39,18 @@ export default function DonationForm({
 	handleSubmit,
 	isLoading,
 	isEthBalanceLoading,
-	isUsdcBalanceLoading,
-	isUsdtBalanceLoading,
 	isDarkMode,
 }: DonationFormProps) {
+	const [isClient, setIsClient] = useState(false);
+
+	useEffect(() => {
+		setIsClient(true); // Marca como cliente após a hidratação
+	}, []);
+
 	useEffect(() => {
 		if (isCustomMode) {
 			const isValid = customCommand.match(
-				/Donate\s+(\d+\.?\d*)\s+(ETH|USDC|USDT)\s+to\s+(0x[a-fA-F0-9]{40}|education|health|environment|social)/i,
+				/Donate\s+(\d+\.?\d*)\s+ETH\s+to\s+(0x[a-fA-F0-9]{40}|education|health|environment|social)/i,
 			);
 			setIsCommandValid(!!isValid);
 		} else {
@@ -57,8 +60,7 @@ export default function DonationForm({
 		}
 	}, [amount, currency, cause, customCommand, isCustomMode, setIsCommandValid]);
 
-	const amountPlaceholder =
-		currency === "ETH" ? "0.001" : currency === "USDC" ? "10" : "10";
+	const amountPlaceholder = "0.001";
 
 	return (
 		<div
@@ -74,7 +76,7 @@ export default function DonationForm({
 			<p className="text-sm sm:text-base text-center mb-4 text-gray-600 dark:text-gray-400 leading-relaxed">
 				{isCustomMode
 					? "Enter your donation command (e.g., Donate 0.001 ETH to a custom address or cause like education)."
-					: "Enter the amount, select currency, and choose a cause."}
+					: "Enter the amount and choose a cause."}
 			</p>
 			<button
 				onClick={() => setIsCustomMode(!isCustomMode)}
@@ -83,7 +85,10 @@ export default function DonationForm({
 					isCustomMode ? "Switch to Simple Mode" : "Switch to Custom Mode"
 				}
 			>
-				{isCustomMode ? "Switch to Simple Mode" : "Switch to Custom Mode"}
+				<span className="flex items-center justify-center gap-2">
+					<FaRobot className="text-lg" />
+					{isCustomMode ? "Switch to Simple Mode" : "Switch to Custom Mode"}
+				</span>
 			</button>
 
 			{isCustomMode ? (
@@ -105,13 +110,13 @@ export default function DonationForm({
 						id="custom-command-description"
 						className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1"
 					>
-						E.g., &quot;Donate 0.001 ETH to 0x123...&quot; or &quot;Donate 10
-						USDC to education&quot;
+						E.g., &quot;Donate 0.001 ETH to 0x123...&quot; or &quot;Donate 0.001
+						ETH to education&quot;
 					</p>
 				</div>
 			) : (
 				<div className="flex flex-col sm:flex-row gap-4 mb-4 justify-center">
-					<div className="w-full sm:w-1/3 mb-2 sm:mb-0">
+					<div className="w-full sm:w-1/2 mb-2 sm:mb-0">
 						<input
 							type="number"
 							step="0.0001"
@@ -134,26 +139,10 @@ export default function DonationForm({
 							id="donation-amount-description"
 							className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1"
 						>
-							Enter amount in {currency}
+							Enter amount (ETH)
 						</p>
 					</div>
-					<div className="w-full sm:w-1/3 mb-2 sm:mb-0">
-						<select
-							value={currency}
-							onChange={(e) => setCurrency(e.target.value)}
-							className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-sm sm:text-base transition-all duration-300 ${
-								isDarkMode
-									? "bg-gray-900/80 border-gray-600 text-gray-100 dark:focus:ring-offset-gray-900"
-									: "bg-white/80 border-gray-200 text-gray-900 dark:focus:ring-offset-gray-200"
-							}`}
-							aria-label="Select currency"
-						>
-							<option value="ETH">ETH</option>
-							<option value="USDC">USDC</option>
-							<option value="USDT">USDT</option>
-						</select>
-					</div>
-					<div className="w-full sm:w-1/3">
+					<div className="w-full sm:w-1/2">
 						<select
 							value={cause}
 							onChange={(e) => setCause(e.target.value as string)}
@@ -173,10 +162,8 @@ export default function DonationForm({
 				</div>
 			)}
 
-			{(isEthBalanceLoading ||
-				isUsdcBalanceLoading ||
-				isUsdtBalanceLoading) && (
-				<div className="text-center text-yellow-300 text-sm mb-4 transition-all duration-300 animate-pulse">
+			{isClient && isEthBalanceLoading && (
+				<div className="text-center text-blue-500 dark:text-blue-400 text-sm mb-4 transition-all duration-300 animate-pulse">
 					<p>Loading balance...</p>
 				</div>
 			)}
@@ -184,18 +171,10 @@ export default function DonationForm({
 			<button
 				onClick={handleSubmit}
 				disabled={
-					!isCommandValid ||
-					isLoading ||
-					isEthBalanceLoading ||
-					isUsdcBalanceLoading ||
-					isUsdtBalanceLoading
+					!isCommandValid || isLoading || (isClient && isEthBalanceLoading)
 				}
 				className={`w-full p-3 sm:p-4 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white transition-all duration-300 shadow-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 flex items-center justify-center gap-2 ${
-					!isCommandValid ||
-					isLoading ||
-					isEthBalanceLoading ||
-					isUsdcBalanceLoading ||
-					isUsdtBalanceLoading
+					!isCommandValid || isLoading || (isClient && isEthBalanceLoading)
 						? "bg-gray-600 cursor-not-allowed"
 						: "hover:scale-105"
 				}`}

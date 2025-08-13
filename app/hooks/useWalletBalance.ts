@@ -1,3 +1,4 @@
+// app/hooks/useWalletBalance.ts
 "use client";
 
 import { useBalance, useAccount } from "wagmi";

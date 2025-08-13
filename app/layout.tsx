@@ -1,3 +1,4 @@
+//app/layout.tsx
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
@@ -6,9 +7,9 @@ import ClientProviders from "./ClientProviders";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-	title: "Agente de Doações Onchain",
+	title: "Onchain Donation Agent",
 	description:
-		"Um agente autônomo para doações onchain usando o Coinbase Developer Platform AgentKit.",
+		"An autonomous agent for onchain donations using the Coinbase Developer Platform AgentKit.",
 };
 
 export default function RootLayout({

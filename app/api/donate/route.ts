@@ -1,3 +1,4 @@
+// app/api/donate/route.ts
 import { NextResponse } from "next/server";
 import { parseEther, isAddress } from "viem";
 import { supabaseServer } from "../../../lib/supabase-server";
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
 			normalizedCurrency === "ETH" ? parseEther(amount).toString() : undefined;
 
 		// Save donation to Supabase
-		const supabase = supabaseServer(); // Agora é síncrono
+		const supabase = await supabaseServer();
 		const { error } = await supabase.from("donations").insert({
 			user_address: signerData.address,
 			amount: amountFloat,
