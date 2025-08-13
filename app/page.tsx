@@ -387,10 +387,10 @@ export default function Home() {
 					<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 						<div
 							className="relative rounded-xl overflow-hidden shadow-lg mx-auto max-w-md h-96"
-							onClick={() => openImageModal("/img/doacoes-tribu-indio.png")}
+							onClick={() => openImageModal("/img/doacoes-tribu-indio.PNG")}
 						>
 							<Image
-								src="/img/doacoes-tribu-indio.png"
+								src="/img/doacoes-tribu-indio.PNG"
 								alt="Indigenous community receiving donations"
 								width={448}
 								height={336}
