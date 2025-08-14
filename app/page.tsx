@@ -1,4 +1,3 @@
-// app/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -307,12 +306,14 @@ export default function Home() {
 						See It in Action
 					</h2>
 					<div className="relative w-full h-64 sm:h-96 bg-gray-200 rounded-xl overflow-hidden shadow-lg">
-						<div className="absolute inset-0 flex items-center justify-center">
-							<FaPlayCircle className="text-6xl text-gray-400" />
-							<p className="text-gray-600 ml-4">
-								Insert a YouTube or Vimeo video here
-							</p>
-						</div>
+						<iframe
+							src="https://www.youtube.com/embed/mB7rnGOn1n8"
+							title="Onchain Donation Demo"
+							frameBorder="0"
+							allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+							allowFullScreen
+							className="w-full h-full"
+						></iframe>
 					</div>
 					<p className="text-lg text-gray-600 mt-6">
 						See how easy it is to donate to causes or any wallet!
@@ -381,10 +382,10 @@ export default function Home() {
 						strengthens communities. The{" "}
 						<span className="font-semibold text-blue-600">Seja Solidário</span>{" "}
 						group unites generous hearts to bring hope, care, and dignity to
-						those in need. From supporting indigenous communities to caring for
-						the elderly with love, your donation makes a difference!
+						those in need. From supporting indigenous communities, your donation
+						makes a difference!
 					</p>
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+					<div className="grid grid-cols-1 md:grid-cols-1 gap-8">
 						<div
 							className="relative rounded-xl overflow-hidden shadow-lg mx-auto max-w-md h-96"
 							onClick={() => openImageModal("/img/doacoes-tribu-indio.PNG")}
@@ -400,24 +401,6 @@ export default function Home() {
 							<div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-6">
 								<p className="text-sm font-semibold">
 									Support for indigenous communities
-								</p>
-							</div>
-						</div>
-						<div
-							className="relative rounded-xl overflow-hidden shadow-lg mx-auto max-w-md h-96"
-							onClick={() => openImageModal("/img/idoso.png")}
-						>
-							<Image
-								src="/img/idoso.png"
-								alt="Woman feeding an elderly person with care"
-								width={448}
-								height={336}
-								className="w-full h-full object-contain aspect-[4/3]"
-								priority
-							/>
-							<div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-6">
-								<p className="text-sm font-semibold">
-									Care and love for the elderly
 								</p>
 							</div>
 						</div>
