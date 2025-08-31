@@ -3,12 +3,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
-import {
-	useSendTransaction,
-	useWriteContract,
-	useBalance,
-	useAccount,
-} from "wagmi";
+import { useWriteContract, useBalance, useAccount } from "wagmi";
 import { parseEther, isAddress } from "viem";
 import { erc20ABI } from "../../lib/erc20ABI";
 import { useTransactionHistory } from "./useTransactionHistory";
@@ -21,6 +16,73 @@ const causeAddressMap = {
 	developer: "0xf2D3CeF68400248C9876f5A281291c7c4603D100",
 } as const;
 
+const CONTRACT_ADDRESS = "0x587811df3f080aadc6d26b10d99b4bc73aa30cd5";
+const CONTRACT_ABI = [
+	{
+		inputs: [],
+		stateMutability: "nonpayable",
+		type: "constructor",
+	},
+	{
+		anonymous: false,
+		inputs: [
+			{
+				indexed: true,
+				internalType: "address",
+				name: "donor",
+				type: "address",
+			},
+			{ indexed: false, internalType: "string", name: "cause", type: "string" },
+			{
+				indexed: false,
+				internalType: "uint256",
+				name: "amount",
+				type: "uint256",
+			},
+		],
+		name: "DonationReceived",
+		type: "event",
+	},
+	{
+		inputs: [{ internalType: "string", name: "", type: "string" }],
+		name: "causeAddresses",
+		outputs: [{ internalType: "address", name: "", type: "address" }],
+		stateMutability: "view",
+		type: "function",
+	},
+	{
+		inputs: [{ internalType: "string", name: "cause", type: "string" }],
+		name: "donate",
+		outputs: [],
+		stateMutability: "payable",
+		type: "function",
+	},
+	{
+		inputs: [{ internalType: "address", name: "recipient", type: "address" }],
+		name: "donateToCustomAddress",
+		outputs: [],
+		stateMutability: "payable",
+		type: "function",
+	},
+	{
+		inputs: [],
+		name: "owner",
+		outputs: [{ internalType: "address", name: "", type: "address" }],
+		stateMutability: "view",
+		type: "function",
+	},
+	{
+		inputs: [
+			{ internalType: "string", name: "cause", type: "string" },
+			{ internalType: "address", name: "newAddress", type: "address" },
+		],
+		name: "updateCauseAddress",
+		outputs: [],
+		stateMutability: "nonpayable",
+		type: "function",
+	},
+];
+
 interface DonationData {
 	value: string;
 	toAddress: string;
@@ -31,7 +93,6 @@ interface DonationData {
 export function useDonationLogic() {
 	const { setFrameReady, isFrameReady } = useMiniKit();
 	const { address } = useAccount();
-	const { sendTransactionAsync } = useSendTransaction();
 	const { writeContractAsync } = useWriteContract();
 	const { data: ethBalance, isLoading: isEthBalanceLoading } = useBalance({
 		address,
@@ -160,11 +221,13 @@ export function useDonationLogic() {
 					) {
 						throw new Error("Insufficient ETH balance");
 					}
-					const tx = await sendTransactionAsync({
-						to: validatedToAddress,
+					txHash = await writeContractAsync({
+						address: CONTRACT_ADDRESS as `0x${string}`,
+						abi: CONTRACT_ABI,
+						functionName: isCustomMode ? "donateToCustomAddress" : "donate",
+						args: [isCustomMode ? validatedToAddress : cause],
 						value: amountInWei,
 					});
-					txHash = tx;
 				} else if (data.currency === "USDC") {
 					const amountInUnits = parseInt(
 						(parseFloat(data.value) * 1e6).toString(),
@@ -174,13 +237,12 @@ export function useDonationLogic() {
 					) {
 						throw new Error("Insufficient USDC balance");
 					}
-					const tx = await writeContractAsync({
+					txHash = await writeContractAsync({
 						address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as const,
 						abi: erc20ABI,
 						functionName: "transfer",
 						args: [validatedToAddress, BigInt(amountInUnits)],
 					});
-					txHash = tx;
 				} else if (data.currency === "USDT") {
 					const amountInUnits = parseInt(
 						(parseFloat(data.value) * 1e6).toString(),
@@ -190,13 +252,12 @@ export function useDonationLogic() {
 					) {
 						throw new Error("Insufficient USDT balance");
 					}
-					const tx = await writeContractAsync({
+					txHash = await writeContractAsync({
 						address: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" as const,
 						abi: erc20ABI,
 						functionName: "transfer",
 						args: [validatedToAddress, BigInt(amountInUnits)],
 					});
-					txHash = tx;
 				} else {
 					throw new Error(`Unsupported currency`);
 				}
@@ -212,6 +273,7 @@ export function useDonationLogic() {
 						signerData: { address },
 						donateToDev: false,
 						txHash,
+						toAddress: validatedToAddress,
 					}),
 				});
 
@@ -269,7 +331,6 @@ export function useDonationLogic() {
 		isUsdcBalanceLoading,
 		isUsdtBalanceLoading,
 		isCustomMode,
-		sendTransactionAsync,
 		usdcBalance?.formatted,
 		usdtBalance?.formatted,
 		validateInput,
@@ -292,8 +353,11 @@ export function useDonationLogic() {
 
 			try {
 				setIsLoading(true);
-				const txHash = await sendTransactionAsync({
-					to: devAddress,
+				const txHash = await writeContractAsync({
+					address: CONTRACT_ADDRESS as `0x${string}`,
+					abi: CONTRACT_ABI,
+					functionName: "donate",
+					args: ["developer"],
 					value: devAmountInWei,
 				});
 
@@ -305,6 +369,7 @@ export function useDonationLogic() {
 						signerData: { address },
 						donateToDev: true,
 						txHash,
+						toAddress: devAddress,
 					}),
 				});
 
@@ -327,7 +392,7 @@ export function useDonationLogic() {
 				setIsLoading(false);
 			}
 		},
-		[address, ethBalance, sendTransactionAsync, refetchHistory],
+		[address, ethBalance, writeContractAsync, refetchHistory],
 	);
 
 	const handleCloseDevModal = useCallback(() => {

@@ -2,13 +2,13 @@
 "use client";
 
 import { WagmiProvider, createConfig, http } from "wagmi";
-import { base } from "wagmi/chains";
+import { baseSepolia } from "wagmi/chains";
 import { walletConnect, injected, coinbaseWallet } from "@wagmi/connectors";
 import { MiniKitProvider } from "@coinbase/onchainkit/minikit";
 
 // Configuração do Wagmi
 const wagmiConfig = createConfig({
-	chains: [base],
+	chains: [baseSepolia],
 	connectors: [
 		injected({ target: "metaMask" }),
 		walletConnect({
@@ -27,7 +27,7 @@ const wagmiConfig = createConfig({
 		}),
 	],
 	transports: {
-		[base.id]: http("https://mainnet.base.org"),
+		[baseSepolia.id]: http("https://sepolia.base.org"),
 	},
 });
 
@@ -40,7 +40,7 @@ export default function ClientProviders({
 		<WagmiProvider config={wagmiConfig}>
 			<MiniKitProvider
 				apiKey={process.env.NEXT_PUBLIC_CDP_API_KEY || ""}
-				chain={base}
+				chain={baseSepolia}
 			>
 				{children}
 			</MiniKitProvider>

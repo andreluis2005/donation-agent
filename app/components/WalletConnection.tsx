@@ -3,7 +3,7 @@
 
 import { useCallback, useState, useEffect } from "react";
 import { useConnect, useDisconnect, useAccount, useSwitchChain } from "wagmi";
-import { base } from "wagmi/chains";
+import { baseSepolia } from "wagmi/chains";
 import {
 	FaWallet,
 	FaPlug,
@@ -32,12 +32,12 @@ export default function WalletConnection({
 		if (address) {
 			setClientAddress(address);
 			onConnect(address);
-			if (chainId !== base.id) {
+			if (chainId !== baseSepolia.id) {
 				try {
-					switchChain({ chainId: base.id });
+					switchChain({ chainId: baseSepolia.id });
 				} catch (err) {
 					console.error(
-						"Failed to switch to Base Mainnet:",
+						"Failed to switch to Base Sepolia:",
 						err instanceof Error ? err.message : "Unknown error",
 					);
 				}
@@ -242,17 +242,17 @@ export default function WalletConnection({
 		>
 			<p className="truncate max-w-xs">{`Wallet Connected: ${clientAddress.slice(0, 6)}...${clientAddress.slice(-4)}`}</p>
 			<p>Chain ID: {chainId}</p>
-			{chainId !== base.id && (
+			{chainId !== baseSepolia.id && (
 				<button
-					onClick={() => switchChain({ chainId: base.id })}
+					onClick={() => switchChain({ chainId: baseSepolia.id })}
 					className={`bg-yellow-500/70 text-white p-2 rounded-full hover:bg-yellow-600/70 transition-colors duration-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 hover:scale-105 ${
 						isDarkMode
 							? "dark:bg-yellow-600/70 dark:hover:bg-yellow-700/70"
 							: ""
 					}`}
-					aria-label="Switch to Base Mainnet"
+					aria-label="Switch to Base Sepolia"
 				>
-					Switch to Base
+					Switch to Base Sepolia
 				</button>
 			)}
 			<button
