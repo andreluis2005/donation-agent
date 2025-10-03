@@ -1,3 +1,4 @@
 teste seg, 29 de set de 2025 23:05:18
 teste qua,  1 de out de 2025 19:59:00
 teste qui,  2 de out de 2025 07:55:17
+teste sex,  3 de out de 2025 14:52:46
