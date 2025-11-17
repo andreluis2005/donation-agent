@@ -23,6 +23,7 @@ O projeto combina **usabilidade, blockchain e inteligência artificial**, trazen
 - 🌓 **Design Adaptativo**: Suporte a **dark/light mode** automático.  
 - ⌨️ **Atalhos de Teclado**: Seleção rápida de causas via teclas (1, 2, 3...).  
 - ✅ **Feedback Visual**: Ícones de carregamento, mensagens de sucesso/erro e links diretos para o **Basescan**.  
+-Breve estaremos incluindo x402
 
 ---
 
