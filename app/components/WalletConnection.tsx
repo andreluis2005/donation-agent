@@ -1,4 +1,5 @@
 // app/components/WalletConnection.tsx
+
 "use client";
 
 import { useCallback, useState, useEffect } from "react";
@@ -267,3 +268,5 @@ export default function WalletConnection({
 		</div>
 	);
 }
+//proxima atualizações
+
