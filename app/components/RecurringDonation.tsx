@@ -1,4 +1,4 @@
-// Esse arquivo devera ser deletado
+// Esse arquivo devera ser deletado ainda hoje
 import React, { useState } from "react";
 import donationSdk from "../sdk/donationSdk";
 
