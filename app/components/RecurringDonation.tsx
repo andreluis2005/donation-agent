@@ -1,4 +1,5 @@
 // Esse arquivo devera ser deletado ainda hoje
+/*
 import React, { useState } from "react";
 import donationSdk from "../sdk/donationSdk";
 
@@ -45,3 +46,4 @@ export default function RecurringDonation() {
 		</div>
 	);
 }
+*/
