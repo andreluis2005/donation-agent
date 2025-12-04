@@ -1,4 +1,5 @@
 // app/page.tsx
+//novas atualizaçoes
 "use client";
 
 import { useState, useEffect } from "react";
@@ -632,3 +633,26 @@ export default function Home() {
 		</div>
 	);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//fims
