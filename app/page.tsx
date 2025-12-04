@@ -55,6 +55,8 @@ export default function Home() {
 		setDevDonationAmount,
 		handleDevDonation,
 	} = useDonationLogic();
+
+	//const
 	const {
 		isHistoryModalOpen,
 		setIsHistoryModalOpen,
@@ -77,7 +79,7 @@ export default function Home() {
 		setClientAddress(address);
 	}, [address]);
 
-	// Força currency como ETH para evitar USDC/USDT
+	// Força currency como ETH para evitar USDC/USDT mas breve vou alterar
 	useEffect(() => {
 		setCurrency("ETH");
 	}, [setCurrency]);
