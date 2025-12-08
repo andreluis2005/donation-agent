@@ -174,3 +174,4 @@ This project is licensed under the MIT License.
 novas atualizações embreve
 
 deletados os aquivos com erros
+novas atualizações estão sendo trabalhadas, breve ...
