@@ -262,3 +262,4 @@ export default function StatsModal({
 		)
 	);
 }
+//fim do app

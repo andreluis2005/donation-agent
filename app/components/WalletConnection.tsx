@@ -270,3 +270,4 @@ export default function WalletConnection({
 }
 //proxima atualizações
 
+//fim do app
