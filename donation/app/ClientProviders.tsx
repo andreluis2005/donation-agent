@@ -7,6 +7,7 @@ import { walletConnect, injected, coinbaseWallet } from "@wagmi/connectors";
 import { MiniKitProvider } from "@coinbase/onchainkit/minikit";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import type { Chain } from "viem";
 
 const projectId =
 	process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "7dfe94d41de1c06e";
@@ -40,10 +41,10 @@ const queryClient = new QueryClient();
 // Este componente garante que o MiniKit sempre tenha uma chain válida
 function SafeMiniKitProvider({ children }: { children: React.ReactNode }) {
 	const chainId = useChainId();
-	const [currentChain, setCurrentChain] = useState(baseSepolia);
+	const [currentChain, setCurrentChain] = useState<Chain>(baseSepolia);
 
 	useEffect(() => {
-		const chainMap: Record<number, typeof baseSepolia> = {
+		const chainMap: Record<number, Chain> = {
 			[baseSepolia.id]: baseSepolia,
 			[base.id]: base,
 			[celoAlfajores.id]: celoAlfajores,
@@ -58,7 +59,7 @@ function SafeMiniKitProvider({ children }: { children: React.ReactNode }) {
 	return (
 		<MiniKitProvider
 			apiKey={process.env.NEXT_PUBLIC_CDP_API_KEY || ""}
-			chain={currentChain} // ← SEMPRE tem uma chain válida
+			chain={currentChain as typeof baseSepolia} // ← SEMPRE tem uma chain válida
 		>
 			{children}
 		</MiniKitProvider>

@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useMiniKit } from "@coinbase/onchainkit/minikit";
-import { useWriteContract, useBalance, useAccount, useChainId } from "wagmi";
+import { useWriteContract, useBalance, useAccount, useChainId, useSendTransaction } from "wagmi";
 import { parseEther, isAddress } from "viem";
 import { erc20ABI } from "../../lib/erc20ABI";
 import { useTransactionHistory } from "./useTransactionHistory";
@@ -93,10 +93,11 @@ interface DonationData {
 }
 
 export function useDonationLogic() {
-	const { setFrameReady, isReady } = useMiniKit();
+	const { setFrameReady, isFrameReady } = useMiniKit();
 	const { address } = useAccount();
 	const chainId = useChainId();
 	const { writeContractAsync } = useWriteContract();
+	const { sendTransactionAsync } = useSendTransaction();
 	const { refetchHistory } = useTransactionHistory(address);
 
 	// Moedas disponíveis nessa rede
@@ -135,13 +136,13 @@ export function useDonationLogic() {
 	const [isLoading, setIsLoading] = useState(false);
 	const [transactionStatus, setTransactionStatus] = useState("");
 	const [isCommandValid, setIsCommandValid] = useState(false);
-	const [lastDonation, setLastDonation] = useState<any>(null);
+	const [lastDonation, setLastDonation] = useState<DonationData & { cause: string; txHash: string; chainId: number } | null>(null);
 	const [isDevDonationModalOpen, setIsDevDonationModalOpen] = useState(false);
 	const [devDonationAmount, setDevDonationAmount] = useState("");
 
 	useEffect(() => {
-		if (!isReady) setFrameReady();
-	}, [isReady, setFrameReady]);
+		if (!isFrameReady) setFrameReady();
+	}, [isFrameReady, setFrameReady]);
 
 	const validateInput = useCallback(() => {
 		if (!address) return "Conecte uma carteira";
@@ -191,41 +192,45 @@ export function useDonationLogic() {
 				data = await res.json();
 			}
 
-			if (!data?.value || !data?.toAddress || !data?.currency) {
+			if (!data || !data.value || !data.toAddress || !data.currency) {
 				throw new Error("Dados inválidos");
 			}
 
-			const validatedToAddress = isAddress(data.toAddress)
-				? (data.toAddress as `0x${string}`)
+			const donationValue = data.value;
+			const donationToAddress = data.toAddress;
+			const donationCurrency = data.currency;
+
+			const validatedToAddress = isAddress(donationToAddress)
+				? (donationToAddress as `0x${string}`)
 				: causeAddressMap[
 						Object.keys(causeAddressMap).find(
 							(k) =>
 								causeAddressMap[
 									k as keyof typeof causeAddressMap
-								].toLowerCase() === data.toAddress.toLowerCase(),
+								].toLowerCase() === donationToAddress.toLowerCase(),
 						) as keyof typeof causeAddressMap
-					] || (data.toAddress as `0x${string}`);
+					] || (donationToAddress as `0x${string}`);
 
 			let txHash: string;
 
 			// === CELO NATIVO ===
-			if (data.currency === "CELO") {
-				const value = parseEther(data.value);
+			if (donationCurrency === "CELO") {
+				const value = parseEther(donationValue);
 				if (
-					parseFloat(nativeBalance?.formatted || "0") < parseFloat(data.value)
+					parseFloat(nativeBalance?.formatted || "0") < parseFloat(donationValue)
 				) {
 					throw new Error("Saldo CELO insuficiente");
 				}
-				txHash = await writeContractAsync({
+				txHash = await sendTransactionAsync({
 					to: validatedToAddress,
 					value,
 				});
 			}
 			// === ETH (Base) ===
-			else if (data.currency === "ETH") {
-				const value = parseEther(data.value);
+			else if (donationCurrency === "ETH") {
+				const value = parseEther(donationValue);
 				if (
-					parseFloat(nativeBalance?.formatted || "0") < parseFloat(data.value)
+					parseFloat(nativeBalance?.formatted || "0") < parseFloat(donationValue)
 				) {
 					throw new Error("Saldo ETH insuficiente");
 				}
@@ -239,7 +244,7 @@ export function useDonationLogic() {
 						value,
 					});
 				} else {
-					txHash = await writeContractAsync({
+					txHash = await sendTransactionAsync({
 						to: validatedToAddress,
 						value,
 					});
@@ -247,25 +252,25 @@ export function useDonationLogic() {
 			}
 			// === USDC / USDT / cUSD (ERC20) ===
 			else {
-				const tokenMap: Record<string, any> = {
+				const tokenMap: Record<string, { address: `0x${string}` | undefined; balance: typeof usdcBalance }> = {
 					USDC: { address: tokens.USDC, balance: usdcBalance },
 					USDT: { address: tokens.USDT, balance: usdtBalance },
 					cUSD: { address: tokens.cUSD, balance: cusdBalance },
 				};
 
-				const tokenInfo = tokenMap[data.currency];
+				const tokenInfo = tokenMap[donationCurrency];
 				if (!tokenInfo?.address)
 					throw new Error("Token não suportado nesta rede");
 
 				if (
 					parseFloat(tokenInfo.balance?.formatted || "0") <
-					parseFloat(data.value)
+					parseFloat(donationValue)
 				) {
-					throw new Error(`Saldo ${data.currency} insuficiente`);
+					throw new Error(`Saldo ${donationCurrency} insuficiente`);
 				}
 
 				const amountInUnits = BigInt(
-					Math.floor(parseFloat(data.value) * 1_000_000),
+					Math.floor(parseFloat(donationValue) * 1_000_000),
 				);
 
 				txHash = await writeContractAsync({
@@ -281,7 +286,7 @@ export function useDonationLogic() {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					command: `Donate ${data.value} ${data.currency} to ${isCustomMode ? data.toAddress : cause}`,
+					command: `Donate ${donationValue} ${donationCurrency} to ${isCustomMode ? donationToAddress : cause}`,
 					signerData: { address },
 					donateToDev: false,
 					txHash,
@@ -292,14 +297,15 @@ export function useDonationLogic() {
 
 			await refetchHistory();
 			setLastDonation({
-				...data,
+				value: donationValue,
 				toAddress: validatedToAddress,
+				currency: donationCurrency,
 				cause: isCustomMode ? "Custom" : cause,
 				txHash,
 				chainId,
 			});
 
-			if (data.currency === "ETH" || data.currency === "CELO") {
+			if (donationCurrency === "ETH" || donationCurrency === "CELO") {
 				setIsDevDonationModalOpen(true);
 			}
 
@@ -307,8 +313,8 @@ export function useDonationLogic() {
 			setTransactionStatus("Confirmed");
 			setAmount("");
 			setCustomCommand("");
-		} catch (err: any) {
-			setMessage(`Erro: ${err.message || "Falhou"}`);
+		} catch (err: unknown) {
+			setMessage(`Erro: ${err instanceof Error ? err.message : "Falhou"}`);
 			setTransactionStatus("Failed");
 		} finally {
 			setIsLoading(false);
@@ -320,13 +326,21 @@ export function useDonationLogic() {
 		currency,
 		customCommand,
 		isCustomMode,
-		isCommandValid,
+		isCusdLoading,
+		isNativeLoading,
+		isUsdcLoading,
+		isUsdtLoading,
+		tokens.USDC,
+		tokens.USDT,
+		tokens.cUSD,
+		validateInput,
 		chainId,
 		nativeBalance,
 		usdcBalance,
 		usdtBalance,
 		cusdBalance,
 		writeContractAsync,
+		sendTransactionAsync,
 		refetchHistory,
 	]);
 
@@ -357,7 +371,7 @@ export function useDonationLogic() {
 		setIsDevDonationModalOpen,
 		devDonationAmount,
 		setDevDonationAmount,
-		handleDevDonation: () => {}, // você pode manter o original se quiser
+		handleDevDonation: async (amount: string) => {}, // você pode manter o original se quiser
 		chainId,
 		availableCurrencies, // ← NOVO: use isso no seu DonationForm
 	};

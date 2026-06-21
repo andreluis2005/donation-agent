@@ -1,6 +1,6 @@
 // app/api/donate/route.ts
 import { NextResponse } from "next/server";
-import { parseEther, isAddress } from "viem";
+import { isAddress } from "viem";
 import { supabaseServer } from "../../../lib/supabase-server";
 
 export async function POST(request: Request) {
@@ -37,8 +37,6 @@ export async function POST(request: Request) {
         { error: "Formato inválido. Use: Donate 0.01 ETH to education" },
         { status: 400 }
       );
-    }
-
     }
 
     const [, rawAmount, currency, target] = match;
@@ -108,10 +106,10 @@ export async function POST(request: Request) {
       },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Erro na API /api/donate:", error);
     return NextResponse.json(
-      { error: error.message || "Erro interno do servidor" },
+      { error: error instanceof Error ? error.message : "Erro interno do servidor" },
       { status: 500 }
     );
   }

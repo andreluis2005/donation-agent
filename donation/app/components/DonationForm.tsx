@@ -60,7 +60,7 @@ export default function DonationForm({
 				!!amount.match(/^\d+\.?\d*$/) && parseFloat(amount) > 0 && !!cause;
 			setIsCommandValid(isValid);
 		}
-	}, [amount, currency, cause, customCommand, isCustomMode]);
+	}, [amount, currency, cause, customCommand, isCustomMode, setIsCommandValid]);
 
 	return (
 		<div
@@ -104,7 +104,7 @@ export default function DonationForm({
 						} ${isCommandValid ? "border-blue-500" : "border-red-300"}`}
 					/>
 					<p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-						E.g., "Donate 0.001 CELO to education"
+						E.g., &quot;Donate 0.001 CELO to education&quot;
 					</p>
 				</div>
 			) : (
