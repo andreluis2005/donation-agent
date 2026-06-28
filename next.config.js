@@ -17,10 +17,19 @@ const nextConfig = {
 	},
 	images: {
 		// Domínios permitidos para o componente <Image> do Next.js
-		domains: [
-			"localhost", // Para desenvolvimento local
-			"donation-agent.vercel.app", // Se você usa Vercel
-			// Adicione outros domínios se usar imagens externas (ex.: CDN do Supabase)
+		remotePatterns: [
+			{
+				protocol: "http",
+				hostname: "localhost",
+			},
+			{
+				protocol: "https",
+				hostname: "donation-agent.vercel.app",
+			},
+			{
+				protocol: "https",
+				hostname: "onchaindonation.vercel.app",
+			},
 		],
 	},
 	// Opcional: Configurações para otimizar o build e deploy
