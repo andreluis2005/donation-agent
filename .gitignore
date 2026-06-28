@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+#Pasta BKP
+BKP/
+../BKP/
+./BKP/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

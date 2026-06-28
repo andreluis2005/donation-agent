@@ -8,7 +8,6 @@ import Image from "next/image";
 import {
 	FaBitcoin,
 	FaInstagram,
-	FaPlayCircle,
 	FaCheckCircle,
 	FaDonate,
 	FaChartBar,

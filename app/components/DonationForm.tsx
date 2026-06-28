@@ -21,6 +21,7 @@ interface DonationFormProps {
 	isLoading: boolean;
 	isEthBalanceLoading: boolean;
 	isDarkMode: boolean;
+	availableCurrencies?: string[]; // ← agora é opcional
 }
 
 export default function DonationForm({
@@ -40,17 +41,18 @@ export default function DonationForm({
 	isLoading,
 	isEthBalanceLoading,
 	isDarkMode,
+	availableCurrencies = ["ETH"], // fallback seguro
 }: DonationFormProps) {
 	const [isClient, setIsClient] = useState(false);
 
 	useEffect(() => {
-		setIsClient(true); // Marca como cliente após a hidratação
+		setIsClient(true);
 	}, []);
 
 	useEffect(() => {
 		if (isCustomMode) {
 			const isValid = customCommand.match(
-				/Donate\s+(\d+\.?\d*)\s+ETH\s+to\s+(0x[a-fA-F0-9]{40}|education|health|environment|social)/i,
+				/Donate\s+(\d+\.?\d*)\s+(ETH|CELO|USDC|USDT|cUSD)\s+to\s+(0x[a-fA-F0-9]{40}|education|health|environment|social)/i,
 			);
 			setIsCommandValid(!!isValid);
 		} else {
@@ -59,8 +61,6 @@ export default function DonationForm({
 			setIsCommandValid(isValid);
 		}
 	}, [amount, currency, cause, customCommand, isCustomMode, setIsCommandValid]);
-
-	const amountPlaceholder = "0.001";
 
 	return (
 		<div
@@ -73,17 +73,16 @@ export default function DonationForm({
 			<h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-center leading-snug">
 				Make a Donation
 			</h2>
+
 			<p className="text-sm sm:text-base text-center mb-4 text-gray-600 dark:text-gray-400 leading-relaxed">
 				{isCustomMode
-					? "Enter your donation command (e.g., Donate 0.001 ETH to a custom address or cause like education)."
+					? "Enter your donation command (e.g., Donate 0.001 ETH to education)."
 					: "Enter the amount and choose a cause."}
 			</p>
+
 			<button
 				onClick={() => setIsCustomMode(!isCustomMode)}
 				className="w-full mb-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-300 shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 hover:scale-105"
-				aria-label={
-					isCustomMode ? "Switch to Simple Mode" : "Switch to Custom Mode"
-				}
 			>
 				<span className="flex items-center justify-center gap-2">
 					<FaRobot className="text-lg" />
@@ -100,58 +99,66 @@ export default function DonationForm({
 						placeholder="Donate 0.001 ETH to 0x... or education"
 						className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-sm sm:text-base transition-all duration-300 ${
 							isDarkMode
-								? "bg-gray-900/80 border-gray-600 text-gray-100 dark:focus:ring-offset-gray-900"
-								: "bg-white/80 border-gray-200 text-gray-900 dark:focus:ring-offset-gray-200"
+								? "bg-gray-900/80 border-gray-600 text-gray-100"
+								: "bg-white/80 border-gray-200 text-gray-900"
 						} ${isCommandValid ? "border-blue-500" : "border-red-300"}`}
-						aria-label="Custom donation command"
-						aria-describedby="custom-command-description"
 					/>
-					<p
-						id="custom-command-description"
-						className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1"
-					>
-						E.g., &quot;Donate 0.001 ETH to 0x123...&quot; or &quot;Donate 0.001
-						ETH to education&quot;
+					<p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+						E.g., &quot;Donate 0.001 CELO to education&quot;
 					</p>
 				</div>
 			) : (
-				<div className="flex flex-col sm:flex-row gap-4 mb-4 justify-center">
-					<div className="w-full sm:w-1/2 mb-2 sm:mb-0">
+				<div className="space-y-6">
+					<div>
 						<input
 							type="number"
 							step="0.0001"
 							value={amount}
 							onChange={(e) => setAmount(e.target.value)}
-							placeholder={amountPlaceholder}
+							placeholder="0.001"
 							className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-sm sm:text-base transition-all duration-300 ${
 								isDarkMode
-									? "bg-gray-900/80 border-gray-600 text-gray-100 dark:focus:ring-offset-gray-900"
-									: "bg-white/80 border-gray-200 text-gray-900 dark:focus:ring-offset-gray-200"
+									? "bg-gray-900/80 border-gray-600 text-gray-100"
+									: "bg-white/80 border-gray-200 text-gray-900"
 							} ${
 								amount.match(/^\d+\.?\d*$/) && parseFloat(amount) > 0
 									? "border-blue-500"
 									: "border-red-300"
 							}`}
-							aria-label="Donation amount"
-							aria-describedby="donation-amount-description"
 						/>
-						<p
-							id="donation-amount-description"
-							className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1"
-						>
-							Enter amount (ETH)
+						<p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+							Enter amount
 						</p>
 					</div>
-					<div className="w-full sm:w-1/2">
+
+					{/* MOEDA — 100% SEGURO CONTRA UNDEFINED */}
+					<div>
 						<select
-							value={cause}
-							onChange={(e) => setCause(e.target.value as string)}
+							value={currency}
+							onChange={(e) => setCurrency(e.target.value)}
 							className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-sm sm:text-base transition-all duration-300 ${
 								isDarkMode
-									? "bg-gray-900/80 border-gray-600 text-gray-100 dark:focus:ring-offset-gray-900"
-									: "bg-white/80 border-gray-200 text-gray-900 dark:focus:ring-offset-gray-200"
+									? "bg-gray-900/80 border-gray-600 text-gray-100"
+									: "bg-white/80 border-gray-200 text-gray-900"
 							}`}
-							aria-label="Select cause"
+						>
+							{availableCurrencies.map((cur) => (
+								<option key={cur} value={cur}>
+									{cur === "CELO" ? "CELO (Native)" : cur}
+								</option>
+							))}
+						</select>
+					</div>
+
+					<div>
+						<select
+							value={cause}
+							onChange={(e) => setCause(e.target.value)}
+							className={`w-full p-3 sm:p-4 rounded-lg border focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 text-sm sm:text-base transition-all duration-300 ${
+								isDarkMode
+									? "bg-gray-900/80 border-gray-600 text-gray-100"
+									: "bg-white/80 border-gray-200 text-gray-900"
+							}`}
 						>
 							<option value="education">Education</option>
 							<option value="health">Health</option>
@@ -163,7 +170,7 @@ export default function DonationForm({
 			)}
 
 			{isClient && isEthBalanceLoading && (
-				<div className="text-center text-blue-500 dark:text-blue-400 text-sm mb-4 transition-all duration-300 animate-pulse">
+				<div className="text-center text-blue-500 dark:text-blue-400 text-sm mb-4 animate-pulse">
 					<p>Loading balance...</p>
 				</div>
 			)}
@@ -178,18 +185,14 @@ export default function DonationForm({
 						? "bg-gray-600 cursor-not-allowed"
 						: "hover:scale-105"
 				}`}
-				aria-label="Confirm Donation"
-				aria-busy={isLoading}
 			>
 				{isLoading ? (
 					<span className="flex items-center gap-2">
 						<svg
 							className="animate-spin h-5 w-5 text-white"
-							role="status"
-							aria-label="Processing"
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
-							viewBox="0 0 24 24"
+							viewBox="0 0 0 24 24"
 						>
 							<circle
 								className="opacity-25"
@@ -205,7 +208,7 @@ export default function DonationForm({
 								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
 							/>
 						</svg>
-						<span>Processing...</span>
+						Processing...
 					</span>
 				) : (
 					<>
@@ -217,4 +220,3 @@ export default function DonationForm({
 		</div>
 	);
 }
-// fim do app
