@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 		"An autonomous agent for onchain donations using the Coinbase Developer Platform AgentKit.",
 	other: {
 		"talentapp:project_verification":
-			"dad3dec46ff741e3cb3d0c0180be4a38a5909b1f583f96e6806cd6dd189ebf196848fb795ae3411f0d89a94232a3a9cac6823ddf4675ba05c3aea4eaf226e40c",
+			"988ae5a22a6898aa345bdb8fe22bec66f34af8f750ce015a52cb47613d0f1498691ad599f0ddd111b4208aac13e6826551e780e5ae095bfbe777d0301b90db24",
 	},
 };
 
