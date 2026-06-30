@@ -42,7 +42,7 @@ export default function TransactionHistory({
 		}
 	}, [isHistoryModalOpen, address, fetchDonations]);
 
-	const filteredHistory = history.filter((entry) => entry.currency === "ETH");
+	const filteredHistory = history;
 
 	return (
 		isHistoryModalOpen && (
@@ -91,7 +91,7 @@ export default function TransactionHistory({
 										</p>
 										<p>
 											<span className="font-semibold">Amount:</span>{" "}
-											{entry.amount} ETH
+											{entry.amount} {entry.currency}
 										</p>
 										<p>
 											<span className="font-semibold">To:</span>{" "}
@@ -104,7 +104,7 @@ export default function TransactionHistory({
 										{entry.dev_donation > 0 && (
 											<p>
 												<span className="font-semibold">Dev Donation:</span>{" "}
-												{entry.dev_donation} ETH
+												{entry.dev_donation} {entry.currency}
 											</p>
 										)}
 									</div>

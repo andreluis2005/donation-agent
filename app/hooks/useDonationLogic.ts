@@ -286,11 +286,13 @@ export function useDonationLogic() {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					command: `Donate ${donationValue} ${donationCurrency} to ${isCustomMode ? donationToAddress : cause}`,
+					amount: donationValue,
+					currency: donationCurrency,
+					toAddress: validatedToAddress,
+					cause: isCustomMode ? "custom" : cause,
 					signerData: { address },
 					donateToDev: false,
 					txHash,
-					toAddress: validatedToAddress,
 					chainId,
 				}),
 			});
@@ -344,6 +346,78 @@ export function useDonationLogic() {
 		refetchHistory,
 	]);
 
+	const handleDevDonation = useCallback(async (devAmount: string) => {
+		if (!address) {
+			setMessage("Conecte uma carteira primeiro");
+			return;
+		}
+
+		setIsLoading(true);
+		setMessage(null);
+
+		try {
+			const value = parseEther(devAmount);
+			let txHash: string;
+
+			if (currency === "CELO") {
+				txHash = await sendTransactionAsync({
+					to: causeAddressMap.developer,
+					value,
+				});
+			} else { // ETH
+				if (chainId === 84532) {
+					txHash = await writeContractAsync({
+						address: CONTRACT_ADDRESS_BASE_SEPOLIA as `0x${string}`,
+						abi: CONTRACT_ABI,
+						functionName: "donateToCustomAddress",
+						args: [causeAddressMap.developer],
+						value,
+					});
+				} else {
+					txHash = await sendTransactionAsync({
+						to: causeAddressMap.developer,
+						value,
+					});
+				}
+			}
+
+			// Grava a doação ao dev no banco
+			await fetch("/api/donate", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					amount: devAmount,
+					currency,
+					toAddress: causeAddressMap.developer,
+					cause: "developer",
+					signerData: { address },
+					donateToDev: true,
+					txHash,
+					chainId,
+				}),
+			});
+
+			await refetchHistory();
+			setMessage(`Doação ao desenvolvedor enviada! Tx: ${txHash.slice(0, 10)}...`);
+			setIsDevDonationModalOpen(false);
+			setDevDonationAmount("");
+		} catch (err: unknown) {
+			setMessage(`Erro ao doar para desenvolvedor: ${err instanceof Error ? err.message : "Falhou"}`);
+		} finally {
+			setIsLoading(false);
+		}
+	}, [
+		address,
+		chainId,
+		currency,
+		sendTransactionAsync,
+		writeContractAsync,
+		refetchHistory,
+		setMessage,
+		setIsDevDonationModalOpen,
+		setDevDonationAmount,
+	]);
+
 	return {
 		amount,
 		setAmount,
@@ -371,7 +445,7 @@ export function useDonationLogic() {
 		setIsDevDonationModalOpen,
 		devDonationAmount,
 		setDevDonationAmount,
-		handleDevDonation: async (amount: string) => {}, // você pode manter o original se quiser
+		handleDevDonation,
 		chainId,
 		availableCurrencies, // ← NOVO: use isso no seu DonationForm
 	};

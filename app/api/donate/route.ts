@@ -7,66 +7,32 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const {
-      command,
+      amount: rawAmount,
+      currency,
+      toAddress,
+      cause = "custom",
       signerData,
       donateToDev = false,
       txHash,
-      chainId, // ← NOVO: vem do frontend agora
+      chainId,
     } = body;
 
     // Validação básica
-    if (!command || !signerData?.address || !txHash) {
+    if (!signerData?.address || !txHash || !currency || !toAddress || rawAmount === undefined) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    const causeAddressMap: Record<string, `0x${string}`> = {
-      education: "0xCaE3E92B39a1965A4B988bE34470Fdc1f49279e6",
-      health: "0x02dE0627054cC5c59821B4Ea2cCE448f64284290",
-      environment: "0x40Af88bA3D3554e0cCb9Ca3EDc72EbEe4e4C7ae5",
-      social: "0x41Ad38D867049a180231038E38890e2c5F1EECbA",
-      developer: "0xf2D3CeF68400248C9876f5A281291c7c4603D100",
-    };
-
-    // Extrai valor, moeda e destino do comando
-    const match = command.match(/Donate\s+(\d+\.?\d*)\s+(ETH|USDC|USDT)\s+to\s+(.+)/i);
-    if (!match) {
-      return NextResponse.json(
-        { error: "Formato inválido. Use: Donate 0.01 ETH to education" },
-        { status: 400 }
-      );
-    }
-
-    const [, rawAmount, currency, target] = match;
     const amount = parseFloat(rawAmount);
-    const normalizedCurrency = currency.toUpperCase();
-    const targetLower = target.trim().toLowerCase();
-
     if (isNaN(amount) || amount <= 0) {
       return NextResponse.json({ error: "Valor inválido" }, { status: 400 });
     }
 
-    if (!["ETH", "USDC", "USDT"].includes(normalizedCurrency)) {
+    const normalizedCurrency = currency.toUpperCase();
+    if (!["ETH", "USDC", "USDT", "CELO", "cUSD"].includes(normalizedCurrency)) {
       return NextResponse.json({ error: "Moeda não suportada" }, { status: 400 });
-    }
-
-    // Define endereço de destino e causa
-    let toAddress: `0x${string}`;
-    let cause: string;
-
-    if (isAddress(target)) {
-      toAddress = target as `0x${string}`;
-      cause = donateToDev ? "developer" : "custom";
-    } else if (causeAddressMap[targetLower]) {
-      toAddress = causeAddressMap[targetLower];
-      cause = targetLower;
-    } else {
-      return NextResponse.json(
-        { error: "Causa ou endereço não encontrado" },
-        { status: 400 }
-      );
     }
 
     if (!isAddress(signerData.address) || !isAddress(toAddress)) {

@@ -49,13 +49,13 @@ export default function DevDonationModal({
 								setIsDevDonationModalOpen(false);
 								setDevDonationAmount("");
 							}}
-							className="text-gray-400 hover:text-gray-200 focus:outline-none"
+							className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus:outline-none"
 							aria-label="Close developer donation modal"
 						>
 							<FaTimes className="w-6 h-6" />
 						</button>
 					</div>
-					<p className="mb-4 text-gray-400">
+					<p className="mb-4 text-gray-600 dark:text-gray-400">
 						Support the developer and help keep this project running! Enter your
 						donation amount in ETH below. Thank you!
 					</p>

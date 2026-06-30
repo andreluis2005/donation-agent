@@ -13,7 +13,6 @@ const nextConfig = {
 		NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
 		NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
 		NEXT_PUBLIC_CDP_API_KEY: process.env.NEXT_PUBLIC_CDP_API_KEY,
-		DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY,
 	},
 	images: {
 		// Domínios permitidos para o componente <Image> do Next.js

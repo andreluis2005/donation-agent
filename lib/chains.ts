@@ -33,7 +33,7 @@ export const tokenAddresses: Record<
 	}
 > = {
 	[baseSepolia.id]: {
-		USDC: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+		USDC: "0x036cbd53842c5426634e7929541ec2318f3dcf7e",
 		USDT: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
 	},
 	[base.id]: {

@@ -51,10 +51,8 @@ export default function DonationForm({
 
 	useEffect(() => {
 		if (isCustomMode) {
-			const isValid = customCommand.match(
-				/Donate\s+(\d+\.?\d*)\s+(ETH|CELO|USDC|USDT|cUSD)\s+to\s+(0x[a-fA-F0-9]{40}|education|health|environment|social)/i,
-			);
-			setIsCommandValid(!!isValid);
+			const isValid = customCommand.trim().length > 0;
+			setIsCommandValid(isValid);
 		} else {
 			const isValid =
 				!!amount.match(/^\d+\.?\d*$/) && parseFloat(amount) > 0 && !!cause;

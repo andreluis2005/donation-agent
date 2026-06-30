@@ -80,13 +80,13 @@ export default function StatsModal({
 		const getStatsData = () => {
 			const stats: Record<
 				keyof typeof causeNameMap,
-				{ ETH: number; USDC: number; USDT: number }
+				{ ETH: number; CELO: number; USDC: number; USDT: number; cUSD: number }
 			> = {
-				education: { ETH: 0, USDC: 0, USDT: 0 },
-				health: { ETH: 0, USDC: 0, USDT: 0 },
-				environment: { ETH: 0, USDC: 0, USDT: 0 },
-				social: { ETH: 0, USDC: 0, USDT: 0 },
-				developer: { ETH: 0, USDC: 0, USDT: 0 },
+				education: { ETH: 0, CELO: 0, USDC: 0, USDT: 0, cUSD: 0 },
+				health: { ETH: 0, CELO: 0, USDC: 0, USDT: 0, cUSD: 0 },
+				environment: { ETH: 0, CELO: 0, USDC: 0, USDT: 0, cUSD: 0 },
+				social: { ETH: 0, CELO: 0, USDC: 0, USDT: 0, cUSD: 0 },
+				developer: { ETH: 0, CELO: 0, USDC: 0, USDT: 0, cUSD: 0 },
 			};
 
 			history.forEach((entry) => {
@@ -100,13 +100,14 @@ export default function StatsModal({
 							key as keyof typeof causeAddressMap
 						]?.toLowerCase() === entry.to_address.toLowerCase(),
 				);
+				const normalizedCurrency = entry.currency.toUpperCase();
 				if (
 					causeKey &&
-					["ETH", "USDC", "USDT"].includes(entry.currency) &&
+					["ETH", "CELO", "USDC", "USDT", "cUSD"].includes(normalizedCurrency) &&
 					stats[causeKey]
 				) {
 					stats[causeKey][
-						entry.currency as keyof (typeof stats)[keyof typeof causeNameMap]
+						normalizedCurrency as keyof (typeof stats)[keyof typeof causeNameMap]
 					] += parseFloat(entry.amount);
 				}
 			});
@@ -118,35 +119,43 @@ export default function StatsModal({
 		const filtered: {
 			cause: string;
 			ETH: number;
+			CELO: number;
 			USDC: number;
 			USDT: number;
+			cUSD: number;
 		}[] = [];
 
 		const causes = filterCause
 			? [filterCause as keyof typeof causeNameMap]
 			: ["education", "health", "environment", "social", "developer"];
-		const currencies = filterCurrency ? [filterCurrency] : ["ETH"];
 
 		causes.forEach((cause) => {
 			const entry = {
 				cause: causeNameMap[cause as keyof typeof causeNameMap],
-				ETH: currencies.includes("ETH")
-					? stats[cause as keyof typeof stats].ETH
-					: 0,
+				ETH: stats[cause as keyof typeof stats].ETH,
+				CELO: stats[cause as keyof typeof stats].CELO,
 				USDC: stats[cause as keyof typeof stats].USDC,
 				USDT: stats[cause as keyof typeof stats].USDT,
+				cUSD: stats[cause as keyof typeof stats].cUSD,
 			};
 			filtered.push(entry);
 		});
 
 		return filtered;
-	}, [filterCause, filterCurrency, history]);
+	}, [filterCause, history]);
 
 	const exportToCSV = () => {
 		const csv = [
-			["Cause", "ETH"].join(","),
+			["Cause", "ETH", "CELO", "USDC", "USDT", "cUSD"].join(","),
 			...filteredStats.map((stat) =>
-				[stat.cause, stat.ETH.toFixed(4)].join(","),
+				[
+					stat.cause,
+					stat.ETH.toFixed(4),
+					stat.CELO.toFixed(4),
+					stat.USDC.toFixed(2),
+					stat.USDT.toFixed(2),
+					stat.cUSD.toFixed(2),
+				].join(","),
 			),
 		].join("\n");
 		const blob = new Blob([csv], { type: "text/csv" });
@@ -158,14 +167,24 @@ export default function StatsModal({
 		window.URL.revokeObjectURL(url);
 	};
 
+	const activeCurrency = filterCurrency || "ETH";
+
 	const chartData = {
 		labels: filteredStats.map((s) => s.cause),
 		datasets: [
 			{
-				label: "ETH",
-				data: filteredStats.map((s) => s.ETH),
-				backgroundColor: "rgba(59, 130, 246, 0.6)",
-				borderColor: "rgba(59, 130, 246, 1)",
+				label: activeCurrency,
+				data: filteredStats.map((s) => s[activeCurrency as keyof typeof s] as number),
+				backgroundColor: activeCurrency === "ETH" 
+					? "rgba(59, 130, 246, 0.6)" 
+					: activeCurrency === "CELO" 
+					? "rgba(52, 211, 153, 0.6)"
+					: "rgba(167, 139, 250, 0.6)",
+				borderColor: activeCurrency === "ETH" 
+					? "rgba(59, 130, 246, 1)" 
+					: activeCurrency === "CELO" 
+					? "rgba(52, 211, 153, 1)"
+					: "rgba(167, 139, 250, 1)",
 				borderWidth: 1,
 			},
 		],
@@ -197,7 +216,7 @@ export default function StatsModal({
 	return (
 		isStatsModalOpen && (
 			<div
-				className={`fixed inset-0 ${isDarkMode ? "bg-black bg-opacity-70" : "bg-gray-900 bg-opacity-50"} flex items-center justify-center transition-all duration-300 text-gray-100`}
+				className={`fixed inset-0 ${isDarkMode ? "bg-black bg-opacity-70" : "bg-gray-900 bg-opacity-50"} flex items-center justify-center transition-all duration-300 ${isDarkMode ? "text-gray-100" : "text-gray-800"}`}
 			>
 				<div
 					className={`w-full max-w-2xl mx-auto p-6 sm:p-8 rounded-lg shadow-md ${isDarkMode ? "bg-gradient-to-br from-gray-900 to-gray-800" : "bg-white"} transition-all duration-300 transform scale-100 opacity-100`}
@@ -227,6 +246,10 @@ export default function StatsModal({
 						>
 							<option value="">All Currencies</option>
 							<option value="ETH">ETH</option>
+							<option value="CELO">CELO</option>
+							<option value="USDC">USDC</option>
+							<option value="USDT">USDT</option>
+							<option value="cUSD">cUSD</option>
 						</select>
 					</div>
 					{filteredStats.length > 0 ? (
@@ -237,11 +260,21 @@ export default function StatsModal({
 						<p className="text-center text-gray-400">No data available.</p>
 					)}
 					<div className="text-center mt-4 space-y-2">
-						{filteredStats.map((stat) => (
-							<p key={stat.cause}>
-								{stat.cause}: {stat.ETH.toFixed(4)} ETH
-							</p>
-						))}
+						{filteredStats.map((stat) => {
+							const values: string[] = [];
+							if (stat.ETH > 0) values.push(`${stat.ETH.toFixed(4)} ETH`);
+							if (stat.CELO > 0) values.push(`${stat.CELO.toFixed(4)} CELO`);
+							if (stat.USDC > 0) values.push(`${stat.USDC.toFixed(2)} USDC`);
+							if (stat.USDT > 0) values.push(`${stat.USDT.toFixed(2)} USDT`);
+							if (stat.cUSD > 0) values.push(`${stat.cUSD.toFixed(2)} cUSD`);
+
+							return (
+								<p key={stat.cause} className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+									<span className="font-semibold">{stat.cause}:</span>{" "}
+									{values.length > 0 ? values.join(" | ") : "0"}
+								</p>
+							);
+						})}
 					</div>
 					<button
 						onClick={exportToCSV}
