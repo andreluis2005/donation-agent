@@ -14,6 +14,8 @@ import {
 	FaSyncAlt,
 	FaFacebook,
 	FaTimes,
+	FaSun,
+	FaMoon,
 } from "react-icons/fa";
 import WalletConnection from "./components/WalletConnection";
 import DonationForm from "./components/DonationForm";
@@ -28,6 +30,39 @@ import { useAccount } from "wagmi";
 
 export default function Home() {
 	const { address } = useAccount();
+	const [isDarkMode, setIsDarkMode] = useState(false);
+
+	useEffect(() => {
+		const savedTheme = localStorage.getItem("theme");
+		if (savedTheme === "dark") {
+			setIsDarkMode(true);
+			document.documentElement.classList.add("dark");
+		} else if (savedTheme === "light") {
+			setIsDarkMode(false);
+			document.documentElement.classList.remove("dark");
+		} else {
+			const systemPrefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+			setIsDarkMode(systemPrefersDark);
+			if (systemPrefersDark) {
+				document.documentElement.classList.add("dark");
+			} else {
+				document.documentElement.classList.remove("dark");
+			}
+		}
+	}, []);
+
+	const toggleDarkMode = () => {
+		const newTheme = !isDarkMode;
+		setIsDarkMode(newTheme);
+		if (newTheme) {
+			document.documentElement.classList.add("dark");
+			localStorage.setItem("theme", "dark");
+		} else {
+			document.documentElement.classList.remove("dark");
+			localStorage.setItem("theme", "light");
+		}
+	};
+
 	const {
 		amount,
 		setAmount,
@@ -109,7 +144,7 @@ export default function Home() {
 	};
 
 	return (
-		<div className="flex flex-col min-h-screen bg-gray-100 transition-all duration-300">
+		<div className="flex flex-col min-h-screen bg-gray-100 dark:bg-[#0B0F19] text-gray-900 dark:text-gray-100 transition-colors duration-300">
 			<style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
         body {
@@ -152,30 +187,37 @@ export default function Home() {
       `}</style>
 
 			{/* Fixed Navigation */}
-			<nav className="fixed top-0 left-0 w-full bg-white shadow-md z-50">
+			<nav className="fixed top-0 left-0 w-full bg-white/80 dark:bg-[#0B0F19]/80 backdrop-blur-md shadow-md z-50 border-b border-gray-200/50 dark:border-white/5 transition-all duration-300">
 				<div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-					<h1 className="text-xl font-bold text-blue-600">Onchain Donation</h1>
-					<div className="flex items-center gap-6">
+					<h1 className="text-xl font-bold text-blue-600 dark:text-blue-400">Onchain Donation</h1>
+					<div className="flex items-center gap-4 sm:gap-6">
 						<Link
 							href="#how-it-works"
-							className="text-gray-600 hover:text-blue-600 transition-all duration-300"
+							className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm sm:text-base transition-all duration-300"
 							aria-label="How It Works Section"
 						>
 							How It Works
 						</Link>
 						<Link
 							href="#why-onchain"
-							className="text-gray-600 hover:text-blue-600 transition-all duration-300"
+							className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 text-sm sm:text-base transition-all duration-300"
 							aria-label="Why Onchain Section"
 						>
 							Why Onchain?
 						</Link>
+						<button
+							onClick={toggleDarkMode}
+							className="p-2 rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-yellow-400 hover:scale-105 active:scale-95 transition-all duration-300 focus:outline-none"
+							aria-label="Toggle Theme"
+						>
+							{isDarkMode ? <FaSun size={18} /> : <FaMoon size={18} />}
+						</button>
 						<Link
 							href="#donation-section"
-							className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-all duration-300 shadow-md hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							className="inline-flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-lg transition-all duration-300 shadow-md hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500"
 							aria-label="Donate with Crypto"
 						>
-							<FaDonate className="mr-2" />
+							<FaDonate className="mr-1 sm:mr-2" />
 							Donate Now
 						</Link>
 					</div>
@@ -192,7 +234,7 @@ export default function Home() {
 					backgroundPosition: "center",
 				}}
 			>
-				<div className="absolute inset-0 bg-blue-900/60"></div>
+				<div className="absolute inset-0 bg-blue-900/60 dark:bg-[#0B0F19]/80"></div>
 				<div className="relative z-10 max-w-4xl mx-auto">
 					<h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-white mb-6 leading-tight hero-title">
 						Empower Change with Crypto
@@ -213,45 +255,45 @@ export default function Home() {
 			</section>
 
 			{/* Social Proof */}
-			<section id="impact" className="py-16 px-6 sm:px-8 lg:px-12 bg-white">
+			<section id="impact" className="py-16 px-6 sm:px-8 lg:px-12 bg-white dark:bg-[#0D1321] border-b border-gray-200/50 dark:border-white/5 transition-colors duration-300">
 				<div className="max-w-5xl mx-auto text-center">
-					<h2 className="text-4xl font-bold text-gray-800 mb-10">
+					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						Making a Difference, Onchain
 					</h2>
 					<div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-						<div className="p-8 bg-gray-50 rounded-xl shadow-lg">
-							<p className="text-5xl font-bold text-blue-600">750+</p>
-							<p className="text-lg text-gray-600 mt-2">Active Donors</p>
+						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-colors duration-300">
+							<p className="text-5xl font-bold text-blue-600 dark:text-blue-400">750+</p>
+							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2">Active Donors</p>
 						</div>
-						<div className="p-8 bg-gray-50 rounded-xl shadow-lg">
-							<p className="text-5xl font-bold text-blue-600">$15,000</p>
-							<p className="text-lg text-gray-600 mt-2">Donated</p>
+						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-colors duration-300">
+							<p className="text-5xl font-bold text-blue-600 dark:text-blue-400">$15,000</p>
+							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2">Donated</p>
 						</div>
-						<div className="p-8 bg-gray-50 rounded-xl shadow-lg">
-							<p className="text-5xl font-bold text-blue-600">4</p>
-							<p className="text-lg text-gray-600 mt-2">Supported Causes</p>
+						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-colors duration-300">
+							<p className="text-5xl font-bold text-blue-600 dark:text-blue-400">4</p>
+							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2">Supported Causes</p>
 						</div>
 					</div>
 					<div className="mt-16">
-						<h3 className="text-3xl font-semibold text-gray-800 mb-8">
+						<h3 className="text-3xl font-semibold text-gray-800 dark:text-gray-100 mb-8">
 							Voices of Impact
 						</h3>
 						<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-							<blockquote className="p-8 bg-gray-50 rounded-xl shadow-lg">
-								<p className="text-lg text-gray-600 italic">
+							<blockquote className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm text-left transition-colors duration-300">
+								<p className="text-lg text-gray-600 dark:text-gray-300 italic">
 									&quot;Onchain Donation made supporting education with crypto
 									easy. Transparency builds trust!&quot;
 								</p>
-								<p className="mt-4 text-gray-800 font-semibold">
+								<p className="mt-4 text-gray-800 dark:text-gray-200 font-semibold">
 									— Global Learning Foundation
 								</p>
 							</blockquote>
-							<blockquote className="p-8 bg-gray-50 rounded-xl shadow-lg">
-								<p className="text-lg text-gray-600 italic">
+							<blockquote className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm text-left transition-colors duration-300">
+								<p className="text-lg text-gray-600 dark:text-gray-300 italic">
 									&quot;I used AI to donate ETH to a friend&apos;s wallet. It
 									was simple and transparent!&quot;
 								</p>
-								<p className="mt-4 text-gray-800 font-semibold">
+								<p className="mt-4 text-gray-800 dark:text-gray-200 font-semibold">
 									— Sarah, Donor
 								</p>
 							</blockquote>
@@ -263,38 +305,38 @@ export default function Home() {
 			{/* How It Works */}
 			<section
 				id="how-it-works"
-				className="py-16 px-6 sm:px-8 lg:px-12 bg-gray-100"
+				className="py-16 px-6 sm:px-8 lg:px-12 bg-gray-100 dark:bg-[#0B0F19] transition-colors duration-300"
 			>
 				<div className="max-w-5xl mx-auto text-center">
-					<h2 className="text-4xl font-bold text-gray-800 mb-10">
+					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						Donate in 3 Simple Steps
 					</h2>
 					<div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-						<div className="p-8 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-							<FaBitcoin className="mx-auto text-5xl text-blue-600 mb-4" />
-							<h3 className="text-2xl font-semibold text-gray-800 mb-3">
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
+							<FaBitcoin className="mx-auto text-5xl text-blue-600 dark:text-blue-400 mb-4" />
+							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
 								Connect Wallet
 							</h3>
-							<p className="text-gray-600">
+							<p className="text-gray-600 dark:text-gray-300">
 								Connect your MetaMask or Coinbase Wallet to the Base network.
 							</p>
 						</div>
-						<div className="p-8 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-							<FaCheckCircle className="mx-auto text-5xl text-blue-600 mb-4" />
-							<h3 className="text-2xl font-semibold text-gray-800 mb-3">
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
+							<FaCheckCircle className="mx-auto text-5xl text-blue-600 dark:text-blue-400 mb-4" />
+							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
 								Choose Cause or Wallet
 							</h3>
-							<p className="text-gray-600">
+							<p className="text-gray-600 dark:text-gray-300">
 								Select Education, Health, Environment, or enter a custom wallet
 								address.
 							</p>
 						</div>
-						<div className="p-8 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-							<FaDonate className="mx-auto text-5xl text-blue-600 mb-4" />
-							<h3 className="text-2xl font-semibold text-gray-800 mb-3">
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
+							<FaDonate className="mx-auto text-5xl text-blue-600 dark:text-blue-400 mb-4" />
+							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
 								Send Crypto
 							</h3>
-							<p className="text-gray-600">
+							<p className="text-gray-600 dark:text-gray-300">
 								Donate ETH instantly with AI support.
 							</p>
 						</div>
@@ -303,12 +345,12 @@ export default function Home() {
 			</section>
 
 			{/* Demo Video */}
-			<section id="demo" className="py-16 px-6 sm:px-8 lg:px-12 bg-white">
+			<section id="demo" className="py-16 px-6 sm:px-8 lg:px-12 bg-white dark:bg-[#0D1321] transition-colors duration-300">
 				<div className="max-w-5xl mx-auto text-center">
-					<h2 className="text-4xl font-bold text-gray-800 mb-10">
+					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						See It in Action
 					</h2>
-					<div className="relative w-full h-64 sm:h-96 bg-gray-200 rounded-xl overflow-hidden shadow-lg">
+					<div className="relative w-full h-64 sm:h-96 bg-gray-200 dark:bg-slate-900 rounded-xl overflow-hidden shadow-lg border dark:border-white/5">
 						<iframe
 							src="https://www.youtube.com/embed/mB7rnGOn1n8"
 							title="Onchain Donation Demo"
@@ -318,7 +360,7 @@ export default function Home() {
 							className="w-full h-full"
 						></iframe>
 					</div>
-					<p className="text-lg text-gray-600 mt-6">
+					<p className="text-lg text-gray-600 dark:text-gray-300 mt-6">
 						See how easy it is to donate to causes or any wallet!
 					</p>
 				</div>
@@ -327,43 +369,43 @@ export default function Home() {
 			{/* Why Donate Onchain? */}
 			<section
 				id="why-onchain"
-				className="py-16 px-6 sm:px-8 lg:px-12 bg-gray-100"
+				className="py-16 px-6 sm:px-8 lg:px-12 bg-gray-100 dark:bg-[#0B0F19] transition-colors duration-300"
 			>
 				<div className="max-w-5xl mx-auto text-center">
-					<h2 className="text-4xl font-bold text-gray-800 mb-10">
+					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						Why Choose Onchain Donations?
 					</h2>
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-						<div className="p-8 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-							<h3 className="text-2xl font-semibold text-gray-800 mb-3">
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
+							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
 								AI-Powered Donations
 							</h3>
-							<p className="text-gray-600">
+							<p className="text-gray-600 dark:text-gray-300">
 								Use AI to donate to any wallet, like a friend&apos;s, with ease.
 							</p>
 						</div>
-						<div className="p-8 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-							<h3 className="text-2xl font-semibold text-gray-800 mb-3">
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
+							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
 								Unmatched Transparency
 							</h3>
-							<p className="text-gray-600">
+							<p className="text-gray-600 dark:text-gray-300">
 								Every donation is recorded on the Base blockchain, fully
 								traceable.
 							</p>
 						</div>
-						<div className="p-8 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-							<h3 className="text-2xl font-semibold text-gray-800 mb-3">
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
+							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
 								Secure Transactions
 							</h3>
-							<p className="text-gray-600">
+							<p className="text-gray-600 dark:text-gray-300">
 								Powered by audited smart contracts for maximum security.
 							</p>
 						</div>
-						<div className="p-8 bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
-							<h3 className="text-2xl font-semibold text-gray-800 mb-3">
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
+							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
 								Low-Cost Transfers
 							</h3>
-							<p className="text-gray-600">
+							<p className="text-gray-600 dark:text-gray-300">
 								The Base network ensures fast and affordable transactions.
 							</p>
 						</div>
@@ -374,23 +416,23 @@ export default function Home() {
 			{/* Real Impact */}
 			<section
 				id="real-impact"
-				className="py-16 px-6 sm:px-8 lg:px-12 bg-white"
+				className="py-16 px-6 sm:px-8 lg:px-12 bg-white dark:bg-[#0D1321] transition-colors duration-300"
 			>
 				<div className="max-w-5xl mx-auto text-center">
-					<h2 className="text-4xl font-bold text-gray-800 mb-10">
+					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						Real Impact, Lives Transformed
 					</h2>
-					<p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto">
+					<p className="text-xl text-gray-600 dark:text-gray-300 mb-12 max-w-3xl mx-auto">
 						Every donation through Onchain Donation transforms lives and
 						strengthens communities. The{" "}
-						<span className="font-semibold text-blue-600">Seja Solidário</span>{" "}
+						<span className="font-semibold text-blue-600 dark:text-blue-400">Seja Solidário</span>{" "}
 						group unites generous hearts to bring hope, care, and dignity to
 						those in need. From supporting indigenous communities, your donation
 						makes a difference!
 					</p>
 					<div className="grid grid-cols-1 md:grid-cols-1 gap-8">
 						<div
-							className="relative rounded-xl overflow-hidden shadow-lg mx-auto max-w-md h-96"
+							className="relative rounded-xl overflow-hidden shadow-lg mx-auto max-w-md h-96 cursor-pointer"
 							onClick={() => openImageModal("/img/doacoes-tribu-indio.PNG")}
 						>
 							<Image
@@ -434,7 +476,7 @@ export default function Home() {
 			)}
 
 			{/* Secondary CTA */}
-			<section className="py-16 px-6 sm:px-8 lg:px-12 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-center">
+			<section className="py-16 px-6 sm:px-8 lg:px-12 bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-900 text-white text-center">
 				<div className="max-w-5xl mx-auto">
 					<h2 className="text-4xl font-bold mb-6">
 						Donate to Causes or Any Wallet
@@ -456,10 +498,10 @@ export default function Home() {
 			{/* Donation Section */}
 			<section
 				id="donation-section"
-				className="py-16 px-6 sm:px-8 lg:px-12 bg-gray-100"
+				className="py-16 px-6 sm:px-8 lg:px-12 bg-gray-100 dark:bg-[#0B0F19] transition-colors duration-300"
 			>
 				<div className="max-w-5xl mx-auto text-center">
-					<h2 className="text-4xl font-bold text-gray-800 mb-10">
+					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						Make Your Donation Now
 					</h2>
 					<div className="relative z-10 w-full max-w-xl mx-auto flex flex-col items-center space-y-6 animate-fade-in">
@@ -467,11 +509,11 @@ export default function Home() {
 							onConnect={(addr) => {
 								console.log("Connected:", addr);
 							}}
-							isDarkMode={false}
+							isDarkMode={isDarkMode}
 						/>
 
 						{clientAddress && (
-							<div className="text-base font-medium mb-8 text-center flex items-center justify-center gap-3 text-gray-800 drop-shadow-md w-full flex-wrap">
+							<div className="text-base font-medium mb-8 text-center flex items-center justify-center gap-3 text-gray-800 dark:text-gray-200 drop-shadow-md w-full flex-wrap">
 								<p>
 									ETH:{" "}
 									{parseFloat(ethBalance?.formatted || "0").toLocaleString(
@@ -501,15 +543,15 @@ export default function Home() {
 							handleSubmit={handleSubmit}
 							isLoading={isLoading}
 							isEthBalanceLoading={isEthBalanceLoading}
-							isDarkMode={false}
+							isDarkMode={isDarkMode}
 						/>
 
-						<MessageDisplay message={message} isDarkMode={false} />
+						<MessageDisplay message={message} isDarkMode={isDarkMode} />
 						{message && transactionStatus === "Confirmed" && (
 							<div className="mt-4 flex justify-center gap-3 flex-wrap">
 								<button
 									onClick={notifyOnWarpcast}
-									className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 hover:scale-105 shadow-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+									className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 hover:scale-105 shadow-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
 									aria-label="Share on Warpcast"
 									disabled={!lastDonation || !lastDonation.txHash}
 								>
@@ -517,14 +559,14 @@ export default function Home() {
 								</button>
 								<button
 									onClick={() => setIsHistoryModalOpen(true)}
-									className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 hover:scale-105 shadow-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+									className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 hover:scale-105 shadow-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
 									aria-label="View Transactions"
 								>
 									Transactions
 								</button>
 								<button
 									onClick={() => setIsStatsModalOpen(true)}
-									className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 hover:scale-105 shadow-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+									className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 hover:scale-105 shadow-md text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
 									aria-label="View Global Donations"
 								>
 									<span className="flex items-center gap-2">
@@ -546,18 +588,18 @@ export default function Home() {
 						)}
 
 						{clientAddress && historyLoading && (
-							<p className="text-gray-800 text-center">
+							<p className="text-gray-800 dark:text-gray-200 text-center">
 								Loading transaction history...
 							</p>
 						)}
 						{historyError && !historyLoading && (
-							<p className="text-red-500 text-center">{historyError}</p>
+							<p className="text-red-500 dark:text-red-400 text-center">{historyError}</p>
 						)}
 
 						<TransactionHistory
 							isHistoryModalOpen={isHistoryModalOpen}
 							setIsHistoryModalOpen={setIsHistoryModalOpen}
-							isDarkMode={false}
+							isDarkMode={isDarkMode}
 							address={address}
 						/>
 						<StatsModal
@@ -567,7 +609,7 @@ export default function Home() {
 							setFilterCause={setFilterCause}
 							filterCurrency={filterCurrency}
 							setFilterCurrency={setFilterCurrency}
-							isDarkMode={false}
+							isDarkMode={isDarkMode}
 						/>
 						<DevDonationModal
 							isDevDonationModalOpen={isDevDonationModalOpen}
@@ -576,20 +618,20 @@ export default function Home() {
 							setDevDonationAmount={setDevDonationAmount}
 							setMessage={setMessage}
 							onConfirm={handleDevDonation}
-							isDarkMode={false}
+							isDarkMode={isDarkMode}
 						/>
 					</div>
 				</div>
 			</section>
 
 			{/* Footer */}
-			<footer className="py-10 px-6 sm:px-8 lg:px-12 bg-gray-800 text-gray-300">
+			<footer className="py-10 px-6 sm:px-8 lg:px-12 bg-gray-800 dark:bg-slate-950 text-gray-300 dark:text-gray-400 border-t border-gray-700/50 dark:border-white/5 transition-colors duration-300">
 				<div className="max-w-5xl mx-auto text-center">
 					<p className="text-lg mb-6">
 						Proud participant of the{" "}
 						<a
 							href="https://onchain-summer-awards.devfolio.co"
-							className="text-blue-500 hover:underline"
+							className="text-blue-500 dark:text-blue-400 hover:underline"
 							target="_blank"
 							rel="noopener noreferrer"
 						>
@@ -602,7 +644,7 @@ export default function Home() {
 							href="https://www.instagram.com/projeto_sejasolidario/"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="text-gray-300 hover:text-blue-500 transition-all duration-300"
+							className="text-gray-300 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-300"
 							aria-label="Follow on Instagram"
 						>
 							<FaInstagram size={30} />
@@ -611,7 +653,7 @@ export default function Home() {
 							href="https://warpcast.com/~/channel/onchain-donation"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="text-gray-300 hover:text-blue-500 transition-all duration-300"
+							className="text-gray-300 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-300"
 							aria-label="Follow on Warpcast"
 						>
 							Warpcast
@@ -620,7 +662,7 @@ export default function Home() {
 							href="https://web.facebook.com/amigossolidariosejaumdenos/photos"
 							target="_blank"
 							rel="noopener noreferrer"
-							className="text-gray-300 hover:text-blue-500 transition-all duration-300"
+							className="text-gray-300 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400 transition-all duration-300"
 							aria-label="Follow on Facebook"
 						>
 							<FaFacebook size={30} />
