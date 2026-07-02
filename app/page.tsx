@@ -107,6 +107,9 @@ export default function Home() {
 	);
 	const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 	const [selectedImage, setSelectedImage] = useState<string | null>(null);
+	const [carouselIndex, setCarouselIndex] = useState(0);
+	const [impactCounts, setImpactCounts] = useState({ families: 0, volunteers: 0, missions: 0, donated: 0 });
+	const [impactVisible, setImpactVisible] = useState(false);
 
 	// Sincroniza endereço no cliente após a hidratação
 	useEffect(() => {
@@ -142,6 +145,45 @@ export default function Home() {
 		setSelectedImage(null);
 		setIsImageModalOpen(false);
 	};
+
+	const carouselImages = [
+		{ src: "/img/doacoes-tribu-indio.PNG", caption: "Seja Solidário team supporting indigenous communities", label: "Indigenous Communities" },
+		{ src: "/img/idoso.PNG", caption: "Care and dignity for the elderly", label: "Elderly Care" },
+		{ src: "/img/1.jpg", caption: "Children receiving food and support", label: "Food Security" },
+		{ src: "/img/5.jpg", caption: "Children playing and smiling thanks to your donations", label: "Education & Joy" },
+	];
+
+	const prevSlide = () => setCarouselIndex((i) => (i === 0 ? carouselImages.length - 1 : i - 1));
+	const nextSlide = () => setCarouselIndex((i) => (i === carouselImages.length - 1 ? 0 : i + 1));
+
+	useEffect(() => {
+		if (!impactVisible) return;
+		const targets = { families: 1200, volunteers: 85, missions: 23, donated: 80 };
+		const duration = 1800;
+		const steps = 60;
+		const interval = duration / steps;
+		let step = 0;
+		const timer = setInterval(() => {
+			step++;
+			const progress = step / steps;
+			const ease = 1 - Math.pow(1 - progress, 3);
+			setImpactCounts({
+				families: Math.round(targets.families * ease),
+				volunteers: Math.round(targets.volunteers * ease),
+				missions: Math.round(targets.missions * ease),
+				donated: Math.round(targets.donated * ease),
+			});
+			if (step >= steps) clearInterval(timer);
+		}, interval);
+		return () => clearInterval(timer);
+	}, [impactVisible]);
+
+	useEffect(() => {
+		const interval = setInterval(() => {
+			setCarouselIndex((i) => (i === carouselImages.length - 1 ? 0 : i + 1));
+		}, 4500);
+		return () => clearInterval(interval);
+	}, [carouselImages.length]);
 
 	return (
 		<div className="flex flex-col min-h-screen bg-gray-100 dark:bg-[#0B0F19] text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -183,6 +225,39 @@ export default function Home() {
         }
         .hero-button-shadow {
           box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.7);
+        }
+        @keyframes countUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .animate-count-up {
+          animation: countUp 0.6s ease-out forwards;
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(30px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        .carousel-slide {
+          animation: slideIn 0.45s ease-out;
+        }
+        @keyframes shimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .impact-gradient-text {
+          background: linear-gradient(90deg, #3b82f6, #6366f1, #3b82f6);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmer 3s linear infinite;
+        }
+        .testimonial-card {
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .testimonial-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 20px 40px rgba(99, 102, 241, 0.15);
         }
       `}</style>
 
@@ -416,40 +491,167 @@ export default function Home() {
 			{/* Real Impact */}
 			<section
 				id="real-impact"
-				className="py-16 px-6 sm:px-8 lg:px-12 bg-white dark:bg-[#0D1321] transition-colors duration-300"
+				className="py-20 px-6 sm:px-8 lg:px-12 bg-white dark:bg-[#0D1321] transition-colors duration-300 overflow-hidden"
 			>
-				<div className="max-w-5xl mx-auto text-center">
-					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
-						Real Impact, Lives Transformed
-					</h2>
-					<p className="text-xl text-gray-600 dark:text-gray-300 mb-12 max-w-3xl mx-auto">
-						Every donation through Onchain Donation transforms lives and
-						strengthens communities. The{" "}
-						<span className="font-semibold text-blue-600 dark:text-blue-400">Seja Solidário</span>{" "}
-						group unites generous hearts to bring hope, care, and dignity to
-						those in need. From supporting indigenous communities, your donation
-						makes a difference!
-					</p>
-					<div className="grid grid-cols-1 md:grid-cols-1 gap-8">
-						<div
-							className="relative rounded-xl overflow-hidden shadow-lg mx-auto max-w-md h-96 cursor-pointer"
-							onClick={() => openImageModal("/img/doacoes-tribu-indio.PNG")}
-						>
-							<Image
-								src="/img/doacoes-tribu-indio.PNG"
-								alt="Indigenous community receiving donations"
-								width={448}
-								height={336}
-								className="w-full h-full object-contain aspect-[4/3]"
-								priority
-							/>
-							<div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-6">
-								<p className="text-sm font-semibold">
-									Support for indigenous communities
-								</p>
+				<div className="max-w-6xl mx-auto">
+
+					{/* Header */}
+					<div className="text-center mb-14">
+						<span className="inline-block px-4 py-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-sm font-semibold rounded-full mb-4 tracking-wide uppercase">
+							✦ Seja Solidário
+						</span>
+						<h2 className="text-4xl sm:text-5xl font-extrabold text-gray-800 dark:text-white mb-5 leading-tight">
+							Real Impact,{" "}
+							<span className="impact-gradient-text">Lives Transformed</span>
+						</h2>
+						<p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+							Every donation through Onchain Donation brings real change.
+							The <span className="font-semibold text-blue-600 dark:text-blue-400">Seja Solidário</span> group
+							unites generous hearts to bring hope, care, and dignity to indigenous communities,
+							the elderly, and children in need.
+						</p>
+					</div>
+
+					{/* Impact Metrics */}
+					<div
+						ref={(el) => {
+							if (el && !impactVisible) {
+								const observer = new IntersectionObserver(
+									([entry]) => { if (entry.isIntersecting) { setImpactVisible(true); observer.disconnect(); } },
+									{ threshold: 0.3 }
+								);
+								observer.observe(el);
+							}
+						}}
+						className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-16"
+					>
+						{[
+							{ value: `${impactCounts.families.toLocaleString()}+`, label: "Families Helped", icon: "🏡" },
+							{ value: `${impactCounts.volunteers}+`, label: "Volunteers", icon: "🤝" },
+							{ value: `${impactCounts.missions}`, label: "Missions Completed", icon: "🌍" },
+							{ value: `R$${impactCounts.donated}k+`, label: "In Donations", icon: "💙" },
+						].map((metric) => (
+							<div
+								key={metric.label}
+								className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800/60 dark:to-indigo-900/20 rounded-2xl border border-blue-100 dark:border-indigo-800/30 text-center shadow-sm hover:shadow-md transition-all duration-300"
+							>
+								<div className="text-3xl mb-2">{metric.icon}</div>
+								<div className={`text-3xl font-extrabold text-blue-600 dark:text-blue-400 ${impactVisible ? 'animate-count-up' : 'opacity-0'}`}>
+									{metric.value}
+								</div>
+								<div className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">{metric.label}</div>
+							</div>
+						))}
+					</div>
+
+					{/* Carousel + Testimonials Side by Side */}
+					<div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mb-16 items-center">
+
+						{/* Carousel */}
+						<div className="relative rounded-2xl overflow-hidden shadow-2xl group" style={{ minHeight: '360px' }}>
+							<div
+								key={carouselIndex}
+								className="carousel-slide relative w-full h-[360px] cursor-pointer"
+								onClick={() => openImageModal(carouselImages[carouselIndex].src)}
+							>
+								<Image
+									src={carouselImages[carouselIndex].src}
+									alt={carouselImages[carouselIndex].caption}
+									fill
+									className="object-cover"
+									priority
+								/>
+								<div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+								<div className="absolute bottom-0 left-0 right-0 p-5">
+									<span className="inline-block px-3 py-1 bg-blue-600/80 text-white text-xs font-bold rounded-full mb-2">
+										{carouselImages[carouselIndex].label}
+									</span>
+									<p className="text-white text-sm font-medium leading-snug">
+										{carouselImages[carouselIndex].caption}
+									</p>
+								</div>
+							</div>
+
+							{/* Arrows */}
+							<button
+								onClick={(e) => { e.stopPropagation(); prevSlide(); }}
+								className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/75 text-white w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 focus:outline-none"
+								aria-label="Previous image"
+							>
+								‹
+							</button>
+							<button
+								onClick={(e) => { e.stopPropagation(); nextSlide(); }}
+								className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/75 text-white w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 focus:outline-none"
+								aria-label="Next image"
+							>
+								›
+							</button>
+
+							{/* Dots */}
+							<div className="absolute bottom-16 right-4 flex gap-1.5">
+								{carouselImages.map((_, i) => (
+									<button
+										key={i}
+										onClick={(e) => { e.stopPropagation(); setCarouselIndex(i); }}
+										className={`w-2 h-2 rounded-full transition-all duration-300 focus:outline-none ${
+											i === carouselIndex ? 'bg-white scale-125' : 'bg-white/50'
+										}`}
+										aria-label={`Go to slide ${i + 1}`}
+									/>
+								))}
 							</div>
 						</div>
+
+						{/* Testimonials */}
+						<div className="flex flex-col gap-5">
+							{[
+								{
+									quote: "\"The Seja Solidário team arrived at our village with food, medicine, and smiles. We felt seen and cared for — a feeling we hadn't had in years.\"",
+									author: "Maria, indigenous community leader",
+									emoji: "🌿",
+								},
+								{
+									quote: "\"I never imagined that a crypto donation could change my grandmother's life. The volunteers came weekly with food and company.\"",
+									author: "Carlos, donor & volunteer",
+									emoji: "💙",
+								},
+								{
+									quote: "\"Every ETH donated goes directly to the mission. Blockchain transparency gave us confidence that our contribution truly reaches those who need it.\"",
+									author: "Ana, monthly donor",
+									emoji: "⛓️",
+								},
+							].map((t) => (
+								<blockquote
+									key={t.author}
+									className="testimonial-card p-5 bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-white/5 rounded-2xl shadow-sm"
+								>
+									<p className="text-gray-600 dark:text-gray-300 italic text-sm leading-relaxed mb-3">
+										{t.quote}
+									</p>
+									<p className="text-gray-800 dark:text-gray-200 font-semibold text-sm flex items-center gap-2">
+										<span>{t.emoji}</span> — {t.author}
+									</p>
+								</blockquote>
+							))}
+						</div>
 					</div>
+
+					{/* CTA emocional */}
+					<div className="text-center mt-4">
+						<p className="text-gray-500 dark:text-gray-400 text-base mb-5">
+							Your donation — however small — can be someone's turning point.
+						</p>
+						<Link
+							href="#donation-section"
+							className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-base font-bold rounded-xl shadow-lg hover:scale-105 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-blue-500"
+							aria-label="Be part of this story"
+						>
+							<FaDonate />
+							Be part of this story → Donate Now
+						</Link>
+					</div>
+
 				</div>
 			</section>
 
