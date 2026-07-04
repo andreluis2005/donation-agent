@@ -59,22 +59,52 @@ export default function StatsModal({
 	const [history, setHistory] = useState<
 		{ amount: string; currency: string; cause: string; to_address: string }[]
 	>([]);
+	const [isLoading, setIsLoading] = useState(false);
+	const [fetchError, setFetchError] = useState<string | null>(null);
 
-	useEffect(() => {
-		async function fetchDonations() {
+	const fetchDonations = async (attempt = 1) => {
+		const MAX_RETRIES = 3;
+		const RETRY_DELAY_MS = 1500;
+		setIsLoading(true);
+		setFetchError(null);
+		try {
 			const supabase = createSupabaseClient();
 			const { data, error } = await supabase
 				.from("donations")
 				.select("amount, currency, cause, to_address")
 				.order("created_at", { ascending: false });
 			if (error) {
-				console.error("Error fetching donations:", error.message);
-			} else {
-				setHistory(data || []);
+				throw new Error(error.message);
 			}
+			setHistory(data || []);
+		} catch (err: unknown) {
+			const message = err instanceof Error ? err.message : "Unknown error";
+			const isFetchFailure =
+				message.toLowerCase().includes("failed to fetch") ||
+				message.toLowerCase().includes("network");
+			if (isFetchFailure && attempt < MAX_RETRIES) {
+				console.warn(
+					`[StatsModal] Fetch attempt ${attempt} failed, retrying in ${RETRY_DELAY_MS}ms…`,
+				);
+				setIsLoading(false);
+				setTimeout(() => fetchDonations(attempt + 1), RETRY_DELAY_MS * attempt);
+				return;
+			}
+			console.error("[StatsModal] Error fetching donations:", message);
+			setFetchError(
+				isFetchFailure
+					? "Connection failed. Check your internet and try again."
+					: `Failed to load data: ${message}`,
+			);
+		} finally {
+			setIsLoading(false);
 		}
-		fetchDonations();
-	}, []);
+	};
+
+	useEffect(() => {
+		if (isStatsModalOpen) fetchDonations();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isStatsModalOpen]);
 
 	const filteredStats = useMemo(() => {
 		const getStatsData = () => {
@@ -252,30 +282,68 @@ export default function StatsModal({
 							<option value="cUSD">cUSD</option>
 						</select>
 					</div>
-					{filteredStats.length > 0 ? (
+					{isLoading ? (
+						<div className="flex flex-col items-center justify-center h-64 gap-3">
+							<svg
+								className="animate-spin h-8 w-8 text-blue-500"
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+							>
+								<circle
+									className="opacity-25"
+									cx="12"
+									cy="12"
+									r="10"
+									stroke="currentColor"
+									strokeWidth="4"
+								/>
+								<path
+									className="opacity-75"
+									fill="currentColor"
+									d="M4 12a8 8 0 018-8v8H4z"
+								/>
+							</svg>
+							<p className={isDarkMode ? "text-gray-400" : "text-gray-500"}>
+								Loading statistics…
+							</p>
+						</div>
+					) : fetchError ? (
+						<div className="flex flex-col items-center justify-center h-64 gap-3">
+							<p className="text-red-400 text-center">{fetchError}</p>
+							<button
+								onClick={() => fetchDonations()}
+								className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm transition-all duration-300 hover:scale-105"
+							>
+								Try Again
+							</button>
+						</div>
+					) : filteredStats.length > 0 ? (
 						<div className="w-full h-64">
 							<Bar data={chartData} options={chartOptions} />
 						</div>
 					) : (
 						<p className="text-center text-gray-400">No data available.</p>
 					)}
-					<div className="text-center mt-4 space-y-2">
-						{filteredStats.map((stat) => {
-							const values: string[] = [];
-							if (stat.ETH > 0) values.push(`${stat.ETH.toFixed(4)} ETH`);
-							if (stat.CELO > 0) values.push(`${stat.CELO.toFixed(4)} CELO`);
-							if (stat.USDC > 0) values.push(`${stat.USDC.toFixed(2)} USDC`);
-							if (stat.USDT > 0) values.push(`${stat.USDT.toFixed(2)} USDT`);
-							if (stat.cUSD > 0) values.push(`${stat.cUSD.toFixed(2)} cUSD`);
+					{!isLoading && !fetchError && (
+						<div className="text-center mt-4 space-y-2">
+							{filteredStats.map((stat) => {
+								const values: string[] = [];
+								if (stat.ETH > 0) values.push(`${stat.ETH.toFixed(4)} ETH`);
+								if (stat.CELO > 0) values.push(`${stat.CELO.toFixed(4)} CELO`);
+								if (stat.USDC > 0) values.push(`${stat.USDC.toFixed(2)} USDC`);
+								if (stat.USDT > 0) values.push(`${stat.USDT.toFixed(2)} USDT`);
+								if (stat.cUSD > 0) values.push(`${stat.cUSD.toFixed(2)} cUSD`);
 
-							return (
-								<p key={stat.cause} className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
-									<span className="font-semibold">{stat.cause}:</span>{" "}
-									{values.length > 0 ? values.join(" | ") : "0"}
-								</p>
-							);
-						})}
-					</div>
+								return (
+									<p key={stat.cause} className={isDarkMode ? "text-gray-300" : "text-gray-700"}>
+										<span className="font-semibold">{stat.cause}:</span>{" "}
+										{values.length > 0 ? values.join(" | ") : "0"}
+									</p>
+								);
+							})}
+						</div>
+					)}
 					<button
 						onClick={exportToCSV}
 						className="mt-6 w-full px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500"
