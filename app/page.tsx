@@ -335,44 +335,47 @@ export default function Home() {
 					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						Making a Difference, Onchain
 					</h2>
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-colors duration-300">
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[1fr]">
+						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-center">
 							<p className="text-5xl font-bold text-blue-600 dark:text-blue-400">750+</p>
-							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2">Active Donors</p>
+							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2 font-medium">Active Donors</p>
 						</div>
-						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-colors duration-300">
+						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-center">
 							<p className="text-5xl font-bold text-blue-600 dark:text-blue-400">$15,000</p>
-							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2">Donated</p>
+							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2 font-medium">Donated</p>
 						</div>
-						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-colors duration-300">
+						<div className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-center">
 							<p className="text-5xl font-bold text-blue-600 dark:text-blue-400">4</p>
-							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2">Supported Causes</p>
+							<p className="text-lg text-gray-600 dark:text-gray-300 mt-2 font-medium">Supported Causes</p>
 						</div>
-					</div>
-					<div className="mt-16">
-						<h3 className="text-3xl font-semibold text-gray-800 dark:text-gray-100 mb-8">
-							Voices of Impact
-						</h3>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-							<blockquote className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm text-left transition-colors duration-300">
-								<p className="text-lg text-gray-600 dark:text-gray-300 italic">
+
+						<blockquote className="md:col-span-2 p-8 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900/60 dark:to-indigo-900/10 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:border-indigo-500/30 flex flex-col justify-between">
+							<div>
+								<span className="text-4xl text-blue-600/30 dark:text-blue-400/30 font-serif leading-none">“</span>
+								<p className="text-lg text-gray-600 dark:text-gray-300 italic -mt-2 leading-relaxed">
 									&quot;Onchain Donation made supporting education with crypto
 									easy. Transparency builds trust!&quot;
 								</p>
-								<p className="mt-4 text-gray-800 dark:text-gray-200 font-semibold">
-									— Global Learning Foundation
-								</p>
-							</blockquote>
-							<blockquote className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm text-left transition-colors duration-300">
-								<p className="text-lg text-gray-600 dark:text-gray-300 italic">
+							</div>
+							<p className="mt-6 text-gray-800 dark:text-gray-200 font-semibold flex items-center gap-2">
+								<span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></span>
+								— Global Learning Foundation
+							</p>
+						</blockquote>
+
+						<blockquote className="p-8 bg-gray-50 dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg backdrop-blur-sm text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-between">
+							<div>
+								<span className="text-4xl text-blue-600/30 dark:text-blue-400/30 font-serif leading-none">“</span>
+								<p className="text-base text-gray-600 dark:text-gray-300 italic -mt-2 leading-relaxed">
 									&quot;I used AI to donate ETH to a friend&apos;s wallet. It
 									was simple and transparent!&quot;
 								</p>
-								<p className="mt-4 text-gray-800 dark:text-gray-200 font-semibold">
-									— Sarah, Donor
-								</p>
-							</blockquote>
-						</div>
+							</div>
+							<p className="mt-6 text-gray-800 dark:text-gray-200 font-semibold flex items-center gap-2">
+								<span className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-400"></span>
+								— Sarah, Donor
+							</p>
+						</blockquote>
 					</div>
 				</div>
 			</section>
@@ -386,34 +389,62 @@ export default function Home() {
 					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						Donate in 3 Simple Steps
 					</h2>
-					<div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
-							<FaBitcoin className="mx-auto text-5xl text-blue-600 dark:text-blue-400 mb-4" />
-							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-								Connect Wallet
-							</h3>
-							<p className="text-gray-600 dark:text-gray-300">
-								Connect your MetaMask or Coinbase Wallet to the Base network.
-							</p>
+					<div className="grid grid-cols-1 md:grid-cols-4 gap-6 auto-rows-[1fr]">
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-between">
+							<div>
+								<div className="flex justify-between items-start mb-4">
+									<FaBitcoin className="text-5xl text-blue-600 dark:text-blue-400" />
+									<span className="text-xs font-bold px-2.5 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full">Passo 1</span>
+								</div>
+								<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3 text-left">
+									Connect Wallet
+								</h3>
+								<p className="text-gray-600 dark:text-gray-300 text-left text-sm sm:text-base leading-relaxed">
+									Connect your MetaMask or Coinbase Wallet to the Base network.
+								</p>
+							</div>
 						</div>
-						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
-							<FaCheckCircle className="mx-auto text-5xl text-blue-600 dark:text-blue-400 mb-4" />
-							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-								Choose Cause or Wallet
-							</h3>
-							<p className="text-gray-600 dark:text-gray-300">
-								Select Education, Health, Environment, or enter a custom wallet
-								address.
-							</p>
+
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-between">
+							<div>
+								<div className="flex justify-between items-start mb-4">
+									<FaCheckCircle className="text-5xl text-blue-600 dark:text-blue-400" />
+									<span className="text-xs font-bold px-2.5 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full">Passo 2</span>
+								</div>
+								<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3 text-left">
+									Choose Cause or Wallet
+								</h3>
+								<p className="text-gray-600 dark:text-gray-300 text-left text-sm sm:text-base leading-relaxed">
+									Select Education, Health, Environment, or enter a custom wallet
+									address.
+								</p>
+							</div>
 						</div>
-						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
-							<FaDonate className="mx-auto text-5xl text-blue-600 dark:text-blue-400 mb-4" />
-							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-								Send Crypto
-							</h3>
-							<p className="text-gray-600 dark:text-gray-300">
-								Donate ETH instantly with AI support.
-							</p>
+
+						<div className="md:col-span-2 p-8 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900/60 dark:to-indigo-900/10 dark:border dark:border-white/5 rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:border-indigo-500/30 flex flex-col justify-between">
+							<div>
+								<div className="flex justify-between items-start mb-4">
+									<FaDonate className="text-5xl text-blue-600 dark:text-blue-400" />
+									<div className="flex gap-2">
+										<span className="text-xs font-bold px-2.5 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 rounded-full">AI Powered</span>
+										<span className="text-xs font-bold px-2.5 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full">Passo 3</span>
+									</div>
+								</div>
+								<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3 text-left">
+									Send Crypto
+								</h3>
+								<p className="text-gray-600 dark:text-gray-300 text-left text-sm sm:text-base leading-relaxed">
+									Donate ETH instantly with AI support. Simply type commands like &quot;Donate 0.001 ETH to education&quot; or use simple mode for standard transactions on Base.
+								</p>
+							</div>
+							<div className="mt-6 flex justify-start">
+								<Link
+									href="#donation-section"
+									className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold rounded-lg transition-all duration-300 shadow-md hover:scale-105"
+								>
+									Start Donating
+								</Link>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -450,39 +481,61 @@ export default function Home() {
 					<h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-10">
 						Why Choose Onchain Donations?
 					</h2>
-					<div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
-						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
-							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-								AI-Powered Donations
-							</h3>
-							<p className="text-gray-600 dark:text-gray-300">
-								Use AI to donate to any wallet, like a friend&apos;s, with ease.
-							</p>
+					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[1fr]">
+						<div className="md:col-span-2 p-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-slate-900/60 dark:to-indigo-950/20 dark:border dark:border-white/5 rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-indigo-500/5 hover:border-indigo-500/30 flex flex-col justify-between text-left">
+							<div>
+								<span className="inline-block px-3 py-1 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold rounded-full mb-4">
+									Advanced Tech
+								</span>
+								<h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">
+									AI-Powered Donations
+								</h3>
+								<p className="text-gray-650 dark:text-gray-300 leading-relaxed text-sm sm:text-base">
+									Use natural language commands to donate directly to causes or any crypto wallet. Our AI agent processes instructions like a friendly chat, checking your balance and completing transactions on Base instantly.
+								</p>
+							</div>
 						</div>
-						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
-							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-								Unmatched Transparency
-							</h3>
-							<p className="text-gray-600 dark:text-gray-300">
-								Every donation is recorded on the Base blockchain, fully
-								traceable.
-							</p>
+
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-between text-left">
+							<div>
+								<span className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-full mb-4">
+									Public Ledger
+								</span>
+								<h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-3">
+									Unmatched Transparency
+								</h3>
+								<p className="text-gray-650 dark:text-gray-350 text-sm sm:text-base leading-relaxed">
+									Every donation is permanently recorded on the Base blockchain, fully traceable and publicly verifiable.
+								</p>
+							</div>
 						</div>
-						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
-							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-								Secure Transactions
-							</h3>
-							<p className="text-gray-600 dark:text-gray-300">
-								Powered by audited smart contracts for maximum security.
-							</p>
+
+						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-between text-left">
+							<div>
+								<span className="inline-block px-3 py-1 bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 text-xs font-bold rounded-full mb-4">
+									Audited Contracts
+								</span>
+								<h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-3">
+									Secure Transactions
+								</h3>
+								<p className="text-gray-650 dark:text-gray-350 text-sm sm:text-base leading-relaxed">
+									Your donations are routed through audited, secure smart contracts, ensuring funds reach the target recipient safely.
+								</p>
+							</div>
 						</div>
-						<div className="p-8 bg-white dark:bg-slate-900/40 dark:border dark:border-white/5 rounded-xl shadow-lg hover:shadow-xl dark:hover:border-blue-500/30 transition-all duration-300">
-							<h3 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">
-								Low-Cost Transfers
-							</h3>
-							<p className="text-gray-600 dark:text-gray-300">
-								The Base network ensures fast and affordable transactions.
-							</p>
+
+						<div className="md:col-span-2 p-8 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900/60 dark:to-blue-950/20 dark:border dark:border-white/5 rounded-xl shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:hover:shadow-blue-500/5 hover:border-blue-500/30 flex flex-col justify-between text-left">
+							<div>
+								<span className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-full mb-4">
+									Base Layer 2
+								</span>
+								<h3 className="text-2xl font-bold text-gray-800 dark:text-white mb-3">
+									Low-Cost & Fast Transfers
+								</h3>
+								<p className="text-gray-650 dark:text-gray-300 leading-relaxed text-sm sm:text-base">
+									By leveraging the Base network (Coinbase's Ethereum Layer 2), we guarantee lightning-fast transaction confirmations and sub-penny gas fees, meaning 99% of your value goes directly to impact.
+								</p>
+							</div>
 						</div>
 					</div>
 				</div>
