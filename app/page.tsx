@@ -533,7 +533,7 @@ export default function Home() {
 									Low-Cost & Fast Transfers
 								</h3>
 								<p className="text-gray-650 dark:text-gray-300 leading-relaxed text-sm sm:text-base">
-									By leveraging the Base network (Coinbase's Ethereum Layer 2), we guarantee lightning-fast transaction confirmations and sub-penny gas fees, meaning 99% of your value goes directly to impact.
+									By leveraging the Base network (Coinbase&apos;s Ethereum Layer 2), we guarantee lightning-fast transaction confirmations and sub-penny gas fees, meaning 99% of your value goes directly to impact.
 								</p>
 							</div>
 						</div>
@@ -693,7 +693,7 @@ export default function Home() {
 					{/* CTA emocional */}
 					<div className="text-center mt-4">
 						<p className="text-gray-500 dark:text-gray-400 text-base mb-5">
-							Your donation — however small — can be someone's turning point.
+							Your donation — however small — can be someone&apos;s turning point.
 						</p>
 						<Link
 							href="#donation-section"
